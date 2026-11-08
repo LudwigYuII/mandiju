@@ -4,24 +4,25 @@ import path from "path";
 import bcrypt from "bcryptjs";
 import manifest from "@/data/manifest.json";
 
+const isBuild = process.env.NEXT_PHASE === "phase-production-build";
+
 const rawDb = process.env.MDJ_DB;
 const isRemote =
   !!rawDb && (rawDb.startsWith("libsql://") || rawDb.startsWith("https://") || rawDb.startsWith("wss://"));
 
-const dbUrl = isRemote
-  ? rawDb!
-  : `file:${rawDb || path.join(process.cwd(), "data", "local.db")}`;
+const localPath = rawDb || path.join(process.cwd(), "data", "local.db");
 
-if (!isRemote) {
-  fs.mkdirSync(path.dirname(rawDb ? rawDb : path.join(process.cwd(), "data", "local.db")), {
-    recursive: true,
-  });
+if (!isRemote && !isBuild) {
+  fs.mkdirSync(path.dirname(localPath), { recursive: true });
 }
 
-export const db = createClient({
-  url: dbUrl,
-  authToken: process.env.MDJ_DB_AUTH_TOKEN || undefined,
-});
+export const db = isBuild
+  ? // 构建阶段：使用本地临时库，绝不连接远程（Next 构建会评估 route handler 模块）
+    createClient({ url: `file:${path.join(process.cwd(), "data", "build-phase.db")}` })
+  : createClient({
+      url: isRemote ? rawDb! : `file:${localPath}`,
+      authToken: process.env.MDJ_DB_AUTH_TOKEN || undefined,
+    });
 
 let ready: Promise<void> | null = null;
 
