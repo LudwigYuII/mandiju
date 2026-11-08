@@ -4,14 +4,30 @@ import path from "path";
 import bcrypt from "bcryptjs";
 import manifest from "@/data/manifest.json";
 
-const dbPath = process.env.MDJ_DB || path.join(process.cwd(), "data", "local.db");
-fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+const rawDb = process.env.MDJ_DB;
+const isRemote =
+  !!rawDb && (rawDb.startsWith("libsql://") || rawDb.startsWith("https://") || rawDb.startsWith("wss://"));
 
-export const db = createClient({ url: `file:${dbPath}` });
+const dbUrl = isRemote
+  ? rawDb!
+  : `file:${rawDb || path.join(process.cwd(), "data", "local.db")}`;
+
+if (!isRemote) {
+  fs.mkdirSync(path.dirname(rawDb ? rawDb : path.join(process.cwd(), "data", "local.db")), {
+    recursive: true,
+  });
+}
+
+export const db = createClient({
+  url: dbUrl,
+  authToken: process.env.MDJ_DB_AUTH_TOKEN || undefined,
+});
 
 let ready: Promise<void> | null = null;
 
 export function waitDb(): Promise<void> {
+  // 构建阶段绝不碰数据库（Next 构建时可能评估 route handler）
+  if (process.env.NEXT_PHASE === "phase-production-build") return Promise.resolve();
   if (!ready) ready = init();
   return ready;
 }
