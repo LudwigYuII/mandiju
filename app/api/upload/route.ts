@@ -3,6 +3,8 @@ import { getSession } from "@/lib/auth";
 import { waitDb } from "@/lib/db";
 import { storeImage } from "@/lib/storage";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   await waitDb();
   const sess = await getSession();
