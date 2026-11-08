@@ -27,7 +27,8 @@ export default function CityMap({ data }: { data: { city: string; count: number 
     let cancelled = false;
     (async () => {
       try {
-        const echarts = (await import("echarts")).default ?? (await import("echarts"));
+        const mod: any = await import("echarts");
+        const echarts = mod.default ?? mod;
         const geo = await (await fetch("/geo/china.json")).json();
         if (cancelled || !ref.current) return;
         echarts.registerMap("china", geo);
