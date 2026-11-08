@@ -1,0 +1,103 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { db, waitDb } from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import { statusOf, fmtTime } from "@/lib/delivery";
+import Seal from "@/components/Seal";
+import Reveal from "@/components/Reveal";
+
+export const dynamic = "force-dynamic";
+
+export default async function MailPage() {
+  await waitDb();
+  const sess = await getSession();
+  if (!sess) redirect("/login");
+
+  const rows = await db.execute({
+    sql: `
+      SELECT l.*,
+        CASE WHEN l.author_id = ? THEN ur.pen_name ELSE ua.pen_name END AS peer_pen,
+        CASE WHEN l.author_id = ? THEN ur.seal_text ELSE ua.seal_text END AS peer_seal,
+        CASE WHEN l.author_id = ? THEN 'to' ELSE 'from' END AS direction
+      FROM letters l
+      JOIN users ua ON ua.id = l.author_id
+      JOIN users ur ON ur.id = l.recipient_id
+      WHERE l.recipient_id IS NOT NULL AND (l.author_id = ? OR l.recipient_id = ?)
+      ORDER BY l.deliver_at DESC LIMIT 100`,
+    args: [sess.uid, sess.uid, sess.uid, sess.uid, sess.uid],
+  });
+
+  const capsules = rows.rows.filter((l: any) => String(l.author_id) === String(l.recipient_id));
+  const mails = rows.rows.filter((l: any) => String(l.author_id) !== String(l.recipient_id));
+
+  const renderItem = (l: any, i: number, capsule: boolean) => {
+    const delivered = statusOf(Number(l.deliver_at)) === "delivered";
+    const stateLabel = capsule
+      ? delivered
+        ? "已解锁"
+        : "沉睡中"
+      : !delivered
+        ? "运输中…"
+        : l.direction === "to"
+          ? l.read_at
+            ? "对方已读"
+            : "已送达 · 未读"
+          : l.read_at
+            ? "已读"
+            : "未读";
+    return (
+      <Reveal key={l.id} delay={Math.min(i, 6) * 60}>
+        <Link
+          href={`/letter/${l.id}`}
+          className={`card glass flex items-center justify-between gap-3 p-4 transition-all duration-300 hover:-translate-y-0.5 ${
+            delivered ? "" : "border-dashed opacity-70"
+          }`}
+        >
+          <div className="flex min-w-0 items-center gap-2.5">
+            <Seal char={String(l.peer_seal || l.peer_pen[0])} size={36} tone={capsule ? "vermilion" : "blue"} />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <span>{String(l.peer_pen)}</span>
+                <span className="text-xs font-normal text-ink-soft">
+                  {capsule ? "寄给未来的自己" : l.direction === "to" ? "我寄出的" : "寄给我的"}
+                </span>
+              </div>
+              <div className="truncate text-xs text-ink-soft">{String(l.title)}</div>
+            </div>
+          </div>
+          <div className="shrink-0 text-right text-xs text-ink-soft">
+            <div className={!delivered || stateLabel.includes("未读") ? "font-semibold text-vermilion" : ""}>
+              {stateLabel}
+            </div>
+            <div>{fmtTime(Number(l.deliver_at))}</div>
+          </div>
+        </Link>
+      </Reveal>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      <h1 className="rise px-1 text-3xl font-semibold tracking-tight">往来信笺</h1>
+
+      {capsules.length > 0 && (
+        <Reveal>
+          <section className="space-y-2">
+            <h2 className="px-1 text-xs font-semibold tracking-[0.18em] text-ink-soft">
+              ⏳ 时光胶囊（{capsules.length}）
+            </h2>
+            {capsules.map((l: any, i: number) => renderItem(l, i, true))}
+          </section>
+        </Reveal>
+      )}
+
+      {mails.length === 0 && capsules.length === 0 ? (
+        <p className="py-10 text-center text-sm text-ink-soft">
+          还没有私人信件。写信时把收件人选成某位笔友，这里就会出现你们的往来。
+        </p>
+      ) : (
+        mails.map((l: any, i: number) => renderItem(l, i, false))
+      )}
+    </div>
+  );
+}

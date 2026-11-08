@@ -1,0 +1,938 @@
+{
+  "version": "1.0",
+  "generated": "2026-11-07",
+  "paper": "#F3ECDE",
+  "logo": [
+    {
+      "id": "A0",
+      "name": "邮戳站标",
+      "file": "logo/A0.png",
+      "size": [
+        512,
+        512
+      ]
+    }
+  ],
+  "stamps": [
+    {
+      "id": "B01",
+      "name": "信鸽",
+      "category": "common",
+      "acquire": {
+        "type": "common"
+      },
+      "file": "stamps/B01.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.137
+    },
+    {
+      "id": "B02",
+      "name": "邮筒",
+      "category": "common",
+      "acquire": {
+        "type": "common"
+      },
+      "file": "stamps/B02.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B03",
+      "name": "信封与羽毛笔",
+      "category": "common",
+      "acquire": {
+        "type": "common"
+      },
+      "file": "stamps/B03.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B04",
+      "name": "月与云",
+      "category": "common",
+      "acquire": {
+        "type": "common"
+      },
+      "file": "stamps/B04.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B05",
+      "name": "第十封信",
+      "category": "milestone",
+      "acquire": {
+        "type": "milestone",
+        "count": 10
+      },
+      "file": "stamps/B05.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.12
+    },
+    {
+      "id": "B06",
+      "name": "第五十封信",
+      "category": "milestone",
+      "acquire": {
+        "type": "milestone",
+        "count": 50
+      },
+      "file": "stamps/B06.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B07",
+      "name": "第一百封信",
+      "category": "milestone",
+      "acquire": {
+        "type": "milestone",
+        "count": 100
+      },
+      "file": "stamps/B07.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.12
+    },
+    {
+      "id": "B08",
+      "name": "周年纪念",
+      "category": "milestone",
+      "acquire": {
+        "type": "milestone",
+        "anniversary": true
+      },
+      "file": "stamps/B08.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B09",
+      "name": "初雪",
+      "category": "weather",
+      "acquire": {
+        "type": "weather",
+        "condition": "初雪"
+      },
+      "file": "stamps/B09.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B10",
+      "name": "暴雨",
+      "category": "weather",
+      "acquire": {
+        "type": "weather",
+        "condition": "暴雨"
+      },
+      "file": "stamps/B10.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B11",
+      "name": "大雾",
+      "category": "weather",
+      "acquire": {
+        "type": "weather",
+        "condition": "大雾"
+      },
+      "file": "stamps/B11.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B12",
+      "name": "彩虹",
+      "category": "weather",
+      "acquire": {
+        "type": "weather",
+        "condition": "彩虹"
+      },
+      "file": "stamps/B12.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B13",
+      "name": "雷电",
+      "category": "weather",
+      "acquire": {
+        "type": "weather",
+        "condition": "雷电"
+      },
+      "file": "stamps/B13.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.191
+    },
+    {
+      "id": "B14",
+      "name": "大风",
+      "category": "weather",
+      "acquire": {
+        "type": "weather",
+        "condition": "大风"
+      },
+      "file": "stamps/B14.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B15",
+      "name": "生辰",
+      "category": "birthday",
+      "acquire": {
+        "type": "birthday"
+      },
+      "file": "stamps/B15.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B16",
+      "name": "立春",
+      "category": "solarTerm",
+      "acquire": {
+        "type": "solarTerm",
+        "term": "立春"
+      },
+      "file": "stamps/B16.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B17",
+      "name": "雨水",
+      "category": "solarTerm",
+      "acquire": {
+        "type": "solarTerm",
+        "term": "雨水"
+      },
+      "file": "stamps/B17.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B18",
+      "name": "惊蛰",
+      "category": "solarTerm",
+      "acquire": {
+        "type": "solarTerm",
+        "term": "惊蛰"
+      },
+      "file": "stamps/B18.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B19",
+      "name": "春分",
+      "category": "solarTerm",
+      "acquire": {
+        "type": "solarTerm",
+        "term": "春分"
+      },
+      "file": "stamps/B19.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B20",
+      "name": "清明",
+      "category": "solarTerm",
+      "acquire": {
+        "type": "solarTerm",
+        "term": "清明"
+      },
+      "file": "stamps/B20.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B21",
+      "name": "谷雨",
+      "category": "solarTerm",
+      "acquire": {
+        "type": "solarTerm",
+        "term": "谷雨"
+      },
+      "file": "stamps/B21.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B22",
+      "name": "立夏",
+      "category": "solarTerm",
+      "acquire": {
+        "type": "solarTerm",
+        "term": "立夏"
+      },
+      "file": "stamps/B22.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.21
+    },
+    {
+      "id": "B23",
+      "name": "小满",
+      "category": "solarTerm",
+      "acquire": {
+        "type": "solarTerm",
+        "term": "小满"
+      },
+      "file": "stamps/B23.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B24",
+      "name": "芒种",
+      "category": "solarTerm",
+      "acquire": {
+        "type": "solarTerm",
+        "term": "芒种"
+      },
+      "file": "stamps/B24.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.12
+    },
+    {
+      "id": "B25",
+      "name": "夏至",
+      "category": "solarTerm",
+      "acquire": {
+        "type": "solarTerm",
+        "term": "夏至"
+      },
+      "file": "stamps/B25.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.489
+    },
+    {
+      "id": "B26",
+      "name": "小暑",
+      "category": "solarTerm",
+      "acquire": {
+        "type": "solarTerm",
+        "term": "小暑"
+      },
+      "file": "stamps/B26.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.189
+    },
+    {
+      "id": "B27",
+      "name": "大暑",
+      "category": "solarTerm",
+      "acquire": {
+        "type": "solarTerm",
+        "term": "大暑"
+      },
+      "file": "stamps/B27.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B28",
+      "name": "立秋",
+      "category": "solarTerm",
+      "acquire": {
+        "type": "solarTerm",
+        "term": "立秋"
+      },
+      "file": "stamps/B28.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B29",
+      "name": "处暑",
+      "category": "solarTerm",
+      "acquire": {
+        "type": "solarTerm",
+        "term": "处暑"
+      },
+      "file": "stamps/B29.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B30",
+      "name": "白露",
+      "category": "solarTerm",
+      "acquire": {
+        "type": "solarTerm",
+        "term": "白露"
+      },
+      "file": "stamps/B30.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B31",
+      "name": "秋分",
+      "category": "solarTerm",
+      "acquire": {
+        "type": "solarTerm",
+        "term": "秋分"
+      },
+      "file": "stamps/B31.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B32",
+      "name": "寒露",
+      "category": "solarTerm",
+      "acquire": {
+        "type": "solarTerm",
+        "term": "寒露"
+      },
+      "file": "stamps/B32.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.181
+    },
+    {
+      "id": "B33",
+      "name": "霜降",
+      "category": "solarTerm",
+      "acquire": {
+        "type": "solarTerm",
+        "term": "霜降"
+      },
+      "file": "stamps/B33.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B34",
+      "name": "立冬",
+      "category": "solarTerm",
+      "acquire": {
+        "type": "solarTerm",
+        "term": "立冬"
+      },
+      "file": "stamps/B34.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B35",
+      "name": "小雪",
+      "category": "solarTerm",
+      "acquire": {
+        "type": "solarTerm",
+        "term": "小雪"
+      },
+      "file": "stamps/B35.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B36",
+      "name": "大雪",
+      "category": "solarTerm",
+      "acquire": {
+        "type": "solarTerm",
+        "term": "大雪"
+      },
+      "file": "stamps/B36.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B37",
+      "name": "冬至",
+      "category": "solarTerm",
+      "acquire": {
+        "type": "solarTerm",
+        "term": "冬至"
+      },
+      "file": "stamps/B37.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.228
+    },
+    {
+      "id": "B38",
+      "name": "小寒",
+      "category": "solarTerm",
+      "acquire": {
+        "type": "solarTerm",
+        "term": "小寒"
+      },
+      "file": "stamps/B38.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B39",
+      "name": "大寒",
+      "category": "solarTerm",
+      "acquire": {
+        "type": "solarTerm",
+        "term": "大寒"
+      },
+      "file": "stamps/B39.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B40",
+      "name": "春节",
+      "category": "festival",
+      "acquire": {
+        "type": "festival",
+        "name": "春节",
+        "window": "前后3天"
+      },
+      "file": "stamps/B40.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B41",
+      "name": "元宵",
+      "category": "festival",
+      "acquire": {
+        "type": "festival",
+        "name": "元宵",
+        "window": "前后3天"
+      },
+      "file": "stamps/B41.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B42",
+      "name": "端午",
+      "category": "festival",
+      "acquire": {
+        "type": "festival",
+        "name": "端午",
+        "window": "前后3天"
+      },
+      "file": "stamps/B42.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B43",
+      "name": "七夕",
+      "category": "festival",
+      "acquire": {
+        "type": "festival",
+        "name": "七夕",
+        "window": "前后3天"
+      },
+      "file": "stamps/B43.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B44",
+      "name": "中秋",
+      "category": "festival",
+      "acquire": {
+        "type": "festival",
+        "name": "中秋",
+        "window": "前后3天"
+      },
+      "file": "stamps/B44.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.411
+    },
+    {
+      "id": "B45",
+      "name": "重阳",
+      "category": "festival",
+      "acquire": {
+        "type": "festival",
+        "name": "重阳",
+        "window": "前后3天"
+      },
+      "file": "stamps/B45.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B46",
+      "name": "元旦",
+      "category": "festival",
+      "acquire": {
+        "type": "festival",
+        "name": "元旦",
+        "window": "前后3天"
+      },
+      "file": "stamps/B46.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B47",
+      "name": "圣诞",
+      "category": "festival",
+      "acquire": {
+        "type": "festival",
+        "name": "圣诞",
+        "window": "前后3天"
+      },
+      "file": "stamps/B47.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B48",
+      "name": "情人节",
+      "category": "festival",
+      "acquire": {
+        "type": "festival",
+        "name": "情人节",
+        "window": "前后3天"
+      },
+      "file": "stamps/B48.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.0
+    },
+    {
+      "id": "B49",
+      "name": "万圣节",
+      "category": "festival",
+      "acquire": {
+        "type": "festival",
+        "name": "万圣节",
+        "window": "前后3天"
+      },
+      "file": "stamps/B49.png",
+      "size": [
+        588,
+        588
+      ],
+      "satFixed": 0.239
+    }
+  ],
+  "avatars": [
+    {
+      "id": "C01",
+      "name": "齐胸襦裙少女",
+      "gender": "female",
+      "file": "avatars/C01.png",
+      "size": [
+        512,
+        768
+      ]
+    },
+    {
+      "id": "C02",
+      "name": "宋制褙子少女",
+      "gender": "female",
+      "file": "avatars/C02.png",
+      "size": [
+        512,
+        768
+      ]
+    },
+    {
+      "id": "C03",
+      "name": "明制袄裙少女",
+      "gender": "female",
+      "file": "avatars/C03.png",
+      "size": [
+        512,
+        768
+      ]
+    },
+    {
+      "id": "C04",
+      "name": "魏晋广袖少女",
+      "gender": "female",
+      "file": "avatars/C04.png",
+      "size": [
+        512,
+        768
+      ]
+    },
+    {
+      "id": "C05",
+      "name": "唐制披帛少女",
+      "gender": "female",
+      "file": "avatars/C05.png",
+      "size": [
+        512,
+        768
+      ]
+    },
+    {
+      "id": "C06",
+      "name": "明制长衫少女",
+      "gender": "female",
+      "file": "avatars/C06.png",
+      "size": [
+        512,
+        768
+      ]
+    },
+    {
+      "id": "C07",
+      "name": "唐圆领袍男子",
+      "gender": "male",
+      "file": "avatars/C07.png",
+      "size": [
+        512,
+        768
+      ]
+    },
+    {
+      "id": "C08",
+      "name": "宋直裰男子",
+      "gender": "male",
+      "file": "avatars/C08.png",
+      "size": [
+        512,
+        768
+      ]
+    },
+    {
+      "id": "C09",
+      "name": "明道袍男子",
+      "gender": "male",
+      "file": "avatars/C09.png",
+      "size": [
+        512,
+        768
+      ]
+    },
+    {
+      "id": "C10",
+      "name": "魏晋宽袍男子",
+      "gender": "male",
+      "file": "avatars/C10.png",
+      "size": [
+        512,
+        768
+      ]
+    },
+    {
+      "id": "C11",
+      "name": "书生",
+      "gender": "male",
+      "file": "avatars/C11.png",
+      "size": [
+        512,
+        768
+      ]
+    },
+    {
+      "id": "C12",
+      "name": "襕衫男子",
+      "gender": "male",
+      "file": "avatars/C12.png",
+      "size": [
+        512,
+        768
+      ]
+    }
+  ],
+  "backgrounds": [
+    {
+      "id": "D01",
+      "name": "竹林",
+      "file": "backgrounds/D01.jpg",
+      "size": [
+        1280,
+        853
+      ]
+    },
+    {
+      "id": "D02",
+      "name": "远山",
+      "file": "backgrounds/D02.jpg",
+      "size": [
+        1280,
+        853
+      ]
+    },
+    {
+      "id": "D03",
+      "name": "雪松",
+      "file": "backgrounds/D03.jpg",
+      "size": [
+        1280,
+        853
+      ]
+    },
+    {
+      "id": "D04",
+      "name": "海上月",
+      "file": "backgrounds/D04.jpg",
+      "size": [
+        1280,
+        853
+      ]
+    }
+  ],
+  "illustrations": [
+    {
+      "id": "E01",
+      "name": "空邮筒",
+      "file": "illustrations/E01.png",
+      "size": [
+        800,
+        800
+      ]
+    },
+    {
+      "id": "E02",
+      "name": "便签墙",
+      "file": "illustrations/E02.png",
+      "size": [
+        800,
+        800
+      ]
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "name": "慢递局",
+  "short_name": "慢递局",
+  "description": "给彼此的信，不着急。",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3ecde",
+  "theme_color": "#f3ecde",
+  "icons": [
+    {
+      "src": "/assets/logo/A0.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,257 @@
+@import "tailwindcss";
+
+/* 自托管开源书法字体（霞鹜文楷 / 朱雀仿宋，SIL OFL，子集化 woff2） */
+@font-face {
+  font-family: "MdjKai";
+  src: url("/fonts/LXGWWenKai-subset.woff2") format("woff2");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "MdjFang";
+  src: url("/fonts/ZhuqueFangsong-subset.woff2") format("woff2");
+  font-display: swap;
+}
+
+:root {
+  --paper: #f3ecde;
+  --paper2: #ebe1cc;
+  --ink: #2a2622;
+  --ink-soft: #6e6455;
+  --vermilion: #c03a2b;
+  --postblue: #4a6b8a;
+  --glass: rgba(243, 236, 222, 0.72);
+}
+
+.dark {
+  --paper: #16140f;
+  --paper2: #1e1b15;
+  --ink: #e9e2d3;
+  --ink-soft: #a89c86;
+  --vermilion: #d65a45;
+  --postblue: #7e9cbb;
+  --glass: rgba(22, 20, 15, 0.72);
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper2: var(--paper2);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-vermilion: var(--vermilion);
+  --color-postblue: var(--postblue);
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+html {
+  -webkit-tap-highlight-color: transparent;
+  font-size: 16.5px;
+}
+
+@media (min-width: 768px) {
+  html {
+    font-size: 17px;
+  }
+}
+
+/* 隐藏 Next.js 开发模式左下角徽标 */
+nextjs-portal {
+  display: none !important;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  letter-spacing: 0.01em;
+}
+
+:root {
+  --font-body: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Segoe UI", sans-serif;
+}
+
+html[data-font="serif"] {
+  --font-body: "Noto Serif SC", "Songti SC", "SimSun", serif;
+}
+
+html[data-font="sans"] {
+  --font-body: "Noto Sans SC", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+html[data-font="kai"] {
+  --font-body: "MdjKai", "KaiTi", "STKaiti", serif;
+}
+
+html[data-font="fang"] {
+  --font-body: "MdjFang", "FangSong", "STFangsong", serif;
+}
+
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+}
+
+.card {
+  background: color-mix(in srgb, var(--paper) 76%, white);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 26px;
+  box-shadow: 0 16px 48px -24px rgba(58, 46, 28, 0.22);
+}
+.dark .card {
+  background: color-mix(in srgb, var(--paper) 82%, white 5%);
+  border-color: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 16px 48px -24px rgba(0, 0, 0, 0.65);
+}
+
+.poem {
+  text-align: center;
+  line-height: 2.2;
+  white-space: pre-wrap;
+}
+
+.prose-letter {
+  white-space: pre-wrap;
+  line-height: 1.9;
+  word-break: break-word;
+}
+
+.input {
+  width: 100%;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.55);
+  padding: 11px 14px;
+  font-size: 1rem;
+  outline: none;
+  color: var(--ink);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.dark .input {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+.input:focus {
+  border-color: var(--vermilion);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--vermilion) 14%, transparent);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--vermilion);
+  color: #fff;
+  font-weight: 600;
+  padding: 11px 22px;
+  font-size: 1rem;
+  box-shadow: 0 12px 28px -14px color-mix(in srgb, var(--vermilion) 70%, transparent);
+  transition: transform 0.2s, filter 0.2s, opacity 0.15s;
+}
+.btn:hover {
+  filter: brightness(1.07);
+}
+.btn:active {
+  transform: scale(0.97);
+  opacity: 1;
+}
+.btn:disabled {
+  opacity: 0.5;
+}
+
+.btn-ghost {
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  padding: 9px 18px;
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+  transition: border-color 0.2s, color 0.2s, transform 0.2s;
+}
+.btn-ghost:hover {
+  border-color: color-mix(in srgb, var(--vermilion) 50%, transparent);
+  color: var(--vermilion);
+}
+.btn-ghost:active {
+  transform: scale(0.97);
+}
+.dark .btn-ghost {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+/* 渐入动效（苹果风滚动进入感） */
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rise {
+  animation: riseIn 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* 信纸纹理（数据 URI 噪点，克制的纸感） */
+.grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+}
+
+/* 书信集打印版式 */
+@media print {
+  .glass,
+  .card {
+    box-shadow: none !important;
+  }
+  .letter-sheet {
+    break-after: page;
+    padding: 12mm 8mm;
+  }
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+}
+
+/* 投递盖章动画 */
+@keyframes stampThud {
+  0% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+  38% {
+    opacity: 1;
+  }
+  62% {
+    transform: scale(0.94);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.stamp-thud {
+  animation: stampThud 1.05s cubic-bezier(0.18, 1.25, 0.4, 1) both;
+}
+
+@keyframes stampFlash {
+  0% {
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.28;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.stamp-flash {
+  animation: stampFlash 1.05s ease-out both;
+}

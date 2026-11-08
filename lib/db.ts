@@ -1,0 +1,201 @@
+import { createClient } from "@libsql/client";
+import fs from "fs";
+import path from "path";
+import bcrypt from "bcryptjs";
+import manifest from "@/data/manifest.json";
+
+const dbPath = process.env.MDJ_DB || path.join(process.cwd(), "data", "local.db");
+fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+
+export const db = createClient({ url: `file:${dbPath}` });
+
+let ready: Promise<void> | null = null;
+
+export function waitDb(): Promise<void> {
+  if (!ready) ready = init();
+  return ready;
+}
+
+async function ensureColumn(table: string, col: string, ddl: string) {
+  const info = await db.execute(`PRAGMA table_info(${table})`);
+  const names = info.rows.map((r: any) => String(r.name));
+  if (!names.includes(col)) {
+    await db.execute(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+  }
+}
+
+async function init() {
+  const stmts = [
+    `CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      pen_name TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      birthday TEXT,
+      avatar_id TEXT NOT NULL DEFAULT 'C01',
+      bg_id TEXT NOT NULL DEFAULT 'D01',
+      role TEXT NOT NULL DEFAULT 'member',
+      letters_sent INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS invites (
+      id TEXT PRIMARY KEY,
+      code TEXT UNIQUE NOT NULL,
+      created_by TEXT,
+      used_by TEXT,
+      created_at INTEGER NOT NULL,
+      used_at INTEGER
+    )`,
+    `CREATE TABLE IF NOT EXISTS letters (
+      id TEXT PRIMARY KEY,
+      author_id TEXT NOT NULL,
+      recipient_id TEXT,
+      genre TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      postage TEXT NOT NULL,
+      stamp_id TEXT NOT NULL,
+      weather TEXT,
+      city TEXT,
+      temp REAL,
+      sent_at INTEGER NOT NULL,
+      deliver_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS replies (
+      id TEXT PRIMARY KEY,
+      letter_id TEXT NOT NULL,
+      author_id TEXT NOT NULL,
+      body TEXT NOT NULL,
+      parent_id TEXT,
+      created_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS likes (
+      letter_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (letter_id, user_id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS stamp_defs (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      acquire TEXT NOT NULL,
+      file TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS user_stamps (
+      user_id TEXT NOT NULL,
+      stamp_id TEXT NOT NULL,
+      acquired_at INTEGER NOT NULL,
+      source TEXT,
+      PRIMARY KEY (user_id, stamp_id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS notes (
+      id TEXT PRIMARY KEY,
+      author_id TEXT NOT NULL,
+      body TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      archived INTEGER NOT NULL DEFAULT 0
+    )`,
+    `CREATE TABLE IF NOT EXISTS topics (
+      id TEXT PRIMARY KEY,
+      month TEXT NOT NULL,
+      title TEXT NOT NULL,
+      stamp_id TEXT NOT NULL,
+      host_id TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS topic_pool (
+      id TEXT PRIMARY KEY,
+      proposer_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS topic_letters (
+      letter_id TEXT PRIMARY KEY,
+      topic_id TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS drafts (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      genre TEXT NOT NULL,
+      title TEXT,
+      body TEXT,
+      postage TEXT,
+      stamp_id TEXT,
+      recipient TEXT,
+      city TEXT,
+      weather TEXT,
+      image TEXT,
+      capsule_date TEXT,
+      topic_id TEXT,
+      reply_to TEXT,
+      updated_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS notifications (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      body TEXT NOT NULL,
+      link TEXT,
+      read INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS password_resets (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      code TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      used INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_letters_deliver ON letters(deliver_at)`,
+    `CREATE INDEX IF NOT EXISTS idx_letters_author ON letters(author_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_replies_letter ON replies(letter_id)`,
+  ];
+  for (const s of stmts) {
+    await db.execute(s);
+  }
+
+  // 迁移：为已有表补列
+  await ensureColumn("users", "seal_text", "seal_text TEXT NOT NULL DEFAULT ''");
+  await ensureColumn("users", "coins", "coins INTEGER NOT NULL DEFAULT 500");
+  await ensureColumn("users", "last_coin_at", "last_coin_at INTEGER");
+  await ensureColumn("letters", "cost", "cost INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("letters", "image", "image TEXT");
+  await ensureColumn("letters", "first_day", "first_day INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("letters", "notified", "notified INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("letters", "reply_to", "reply_to TEXT");
+  await ensureColumn("letters", "read_at", "read_at INTEGER");
+
+  // 老账号：私印默认取笔名首字
+  await db.execute("UPDATE users SET seal_text = substr(pen_name, 1, 1) WHERE seal_text = ''");
+
+  // 邮票图鉴种子
+  for (const s of (manifest.stamps as any[])) {
+    await db.execute({
+      sql: "INSERT OR IGNORE INTO stamp_defs(id, name, category, acquire, file) VALUES(?,?,?,?,?)",
+      args: [s.id, s.name, s.category, JSON.stringify(s.acquire), s.file],
+    });
+  }
+
+  // 管理员种子
+  const adminRow = await db.execute("SELECT id FROM users WHERE role='admin' LIMIT 1");
+  if (adminRow.rows.length === 0) {
+    const pass = process.env.MDJ_ADMIN_PASS || "kaizhang-2026";
+    const hash = await bcrypt.hash(pass, 10);
+    await db.execute({
+      sql: "INSERT INTO users(id, email, pen_name, password_hash, role, seal_text, coins, last_coin_at, created_at) VALUES(?,?,?,?,?,?,?,?,?)",
+      args: [crypto.randomUUID(), "admin@mandiju.dev", "站长", hash, "admin", "站", 500, Date.now(), Date.now()],
+    });
+  }
+
+  // 开张邀请码
+  const anyInvite = await db.execute("SELECT id FROM invites LIMIT 1");
+  if (anyInvite.rows.length === 0) {
+    await db.execute({
+      sql: "INSERT INTO invites(id, code, created_by, created_at) VALUES(?,?,?,?)",
+      args: [crypto.randomUUID(), "KAIZHANG", null, Date.now()],
+    });
+  }
+}
