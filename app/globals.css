@@ -332,6 +332,37 @@ html[data-font="fang"] {
   }
 }
 
+/* 阅后即焚 */
+.burn-flame {
+  display: inline-block;
+  animation: flameFlicker 0.5s ease-in-out infinite alternate;
+}
+@keyframes flameFlicker {
+  from {
+    transform: scale(1) rotate(-4deg);
+  }
+  to {
+    transform: scale(1.18) rotate(4deg);
+  }
+}
+.ash-rise {
+  display: inline-block;
+  animation: ashRise 2.6s ease-out both;
+}
+@keyframes ashRise {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+}
+
 /* 桌面宽屏 */
 .page-width {
   max-width: 42rem;

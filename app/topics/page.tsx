@@ -34,6 +34,7 @@ export default async function TopicsPage() {
             JOIN letters l ON l.id = tl.letter_id
             JOIN users u ON u.id = l.author_id
             WHERE tl.topic_id = ? AND l.deliver_at <= ?
+              AND (l.burn_seconds IS NULL OR l.burn_seconds = 0)
             ORDER BY l.deliver_at ASC`,
       args: [String(topic.id), Date.now()],
     });

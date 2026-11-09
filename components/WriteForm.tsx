@@ -31,6 +31,7 @@ type Draft = {
   capsuleDate: string;
   topicId: string;
   replyTo: string;
+  burnSeconds: string;
   updatedAt: number;
 };
 
@@ -97,6 +98,10 @@ export default function WriteForm({
   const [uploading, setUploading] = useState(false);
   const [uploadErr, setUploadErr] = useState("");
   const [capsuleDate, setCapsuleDate] = useState<string | null>(drafts[0]?.capsuleDate || null);
+  const [burnOn, setBurnOn] = useState(false);
+  const [burnSeconds, setBurnSeconds] = useState<number>(
+    drafts[0]?.burnSeconds ? Number(drafts[0].burnSeconds) : 60
+  );
   const [draftId, setDraftId] = useState("");
   const [replyTo, setReplyTo] = useState(reply?.id ?? "");
   const [saving, setSaving] = useState(false);
@@ -149,6 +154,7 @@ export default function WriteForm({
     fd.set("capsuleDate", capsuleDate ?? "");
     fd.set("topicId", topic?.id ?? "");
     fd.set("replyTo", replyTo);
+    fd.set("burnSeconds", burnOn && recipient && !isCapsule ? String(burnSeconds) : "");
     const res = await saveDraftAction({}, fd);
     setSaving(false);
     if ((res as any)?.draftId) setDraftId((res as any).draftId);
@@ -168,6 +174,8 @@ export default function WriteForm({
     setImageUrl(d.image);
     setCapsuleDate(d.capsuleDate || null);
     setReplyTo(d.replyTo);
+    setBurnOn(!!d.burnSeconds);
+    if (d.burnSeconds) setBurnSeconds(Number(d.burnSeconds));
     setWeatherCode(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -247,6 +255,11 @@ export default function WriteForm({
         <input type="hidden" name="capsuleDate" value={capsuleDate ?? ""} />
         <input type="hidden" name="replyTo" value={replyTo} />
         <input type="hidden" name="draftId" value={draftId} />
+        <input
+          type="hidden"
+          name="burnSeconds"
+          value={burnOn && recipient && !isCapsule ? burnSeconds : ""}
+        />
         {topic && <input type="hidden" name="topicId" value={topic.id} />}
 
         {topic && (
@@ -424,6 +437,45 @@ export default function WriteForm({
             </div>
           )}
         </section>
+
+        {/* 阅后即焚 */}
+        {recipient && !isCapsule && (
+          <section>
+            <h3 className="mb-2.5 text-sm font-semibold">阅后即焚</h3>
+            <div className="card flex flex-wrap items-center gap-2.5 p-3.5">
+              <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={burnOn}
+                  onChange={(e) => setBurnOn(e.target.checked)}
+                  className="h-4 w-4 accent-vermilion"
+                />
+                🔥 这封信只看一次
+              </label>
+              {burnOn && (
+                <div className="flex gap-1.5">
+                  {[30, 60, 180].map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setBurnSeconds(s)}
+                      className={`btn-ghost !px-3 !py-1 !text-xs ${
+                        burnSeconds === s ? "!border-vermilion !text-vermilion" : ""
+                      }`}
+                    >
+                      {s === 30 ? "30 秒" : s === 60 ? "1 分钟" : "3 分钟"}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {burnOn && (
+              <p className="mt-2 text-xs text-ink-soft">
+                {recipient} 首次拆封后开始倒计时，读完即焚；寄出后连你自己也无法再读。
+              </p>
+            )}
+          </section>
+        )}
 
         {/* 邮票 */}
         <section>

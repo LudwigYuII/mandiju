@@ -12,6 +12,8 @@ import { todayFirstDay } from "./calendar";
 import { notify } from "./notify";
 import { sendMail } from "./mail";
 import { canWriteTo } from "./friends";
+import { BURN_OPTIONS } from "./burn";
+import { wipeBurn } from "./burn-db";
 import type { WeatherInfo } from "./weather";
 
 export type ActionState = { error?: string; ok?: boolean };
@@ -107,6 +109,7 @@ export async function createLetterAction(_prev: ActionState, formData: FormData)
   const capsuleRaw = needText(formData.get("capsuleDate"));
   const replyTo = needText(formData.get("replyTo"));
   const draftId = needText(formData.get("draftId"));
+  const burnSecondsRaw = needText(formData.get("burnSeconds"));
 
   if (!["letter", "daily", "poem", "postcard"].includes(genre)) return { error: "请选择体裁" };
   if (!city) return { error: "请填写城市名（官戳要盖章）" };
@@ -165,6 +168,15 @@ export async function createLetterAction(_prev: ActionState, formData: FormData)
     }
   }
 
+  // 阅后即焚：只能寄给指定笔友（公开信/时光胶囊不可焚）
+  let burnSeconds: number | null = null;
+  if (burnSecondsRaw) {
+    if (!recipientId || isCapsule) return { error: "阅后即焚只能寄给某位笔友" };
+    const n = Number(burnSecondsRaw);
+    if (!(BURN_OPTIONS as readonly number[]).includes(n)) return { error: "焚毁倒计时无效" };
+    burnSeconds = n;
+  }
+
   // 回信：校验原信存在
   let replyTitle: string | null = null;
   if (replyTo) {
@@ -189,8 +201,8 @@ export async function createLetterAction(_prev: ActionState, formData: FormData)
   const deliverMs = isCapsule ? capsuleAt : deliverAt(postage, now);
 
   await db.execute({
-    sql: `INSERT INTO letters(id, author_id, recipient_id, genre, title, body, postage, stamp_id, weather, city, temp, cost, image, first_day, reply_to, sent_at, deliver_at)
-          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    sql: `INSERT INTO letters(id, author_id, recipient_id, genre, title, body, postage, stamp_id, weather, city, temp, cost, image, first_day, reply_to, sent_at, deliver_at, burn_seconds)
+          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     args: [
       id, sess.uid, recipientId, genre,
       title || (genre === "postcard" ? "明信片" : "无题"),
@@ -206,6 +218,7 @@ export async function createLetterAction(_prev: ActionState, formData: FormData)
       replyTo || null,
       now,
       deliverMs,
+      burnSeconds,
     ],
   });
   if (draftId) {
@@ -462,14 +475,17 @@ export async function saveDraftAction(_prev: ActionState, formData: FormData): P
   if (!title && !body) return { error: "空草稿不值得保存" };
   const draftId = needText(formData.get("draftId"));
   const id = draftId || crypto.randomUUID();
+  const burnRaw = needText(formData.get("burnSeconds"));
+  const burnSeconds =
+    burnRaw && (BURN_OPTIONS as readonly number[]).includes(Number(burnRaw)) ? Number(burnRaw) : null;
   await db.execute({
-    sql: `INSERT INTO drafts(id, user_id, genre, title, body, postage, stamp_id, recipient, city, weather, image, capsule_date, topic_id, reply_to, updated_at)
-          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    sql: `INSERT INTO drafts(id, user_id, genre, title, body, postage, stamp_id, recipient, city, weather, image, capsule_date, topic_id, reply_to, burn_seconds, updated_at)
+          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
           ON CONFLICT(id) DO UPDATE SET genre=excluded.genre, title=excluded.title, body=excluded.body,
             postage=excluded.postage, stamp_id=excluded.stamp_id, recipient=excluded.recipient,
             city=excluded.city, weather=excluded.weather, image=excluded.image,
             capsule_date=excluded.capsule_date, topic_id=excluded.topic_id, reply_to=excluded.reply_to,
-            updated_at=excluded.updated_at`,
+            burn_seconds=excluded.burn_seconds, updated_at=excluded.updated_at`,
     args: [
       id, sess.uid, genre, title || null, body || null,
       needText(formData.get("postage")) || null,
@@ -481,6 +497,7 @@ export async function saveDraftAction(_prev: ActionState, formData: FormData): P
       needText(formData.get("capsuleDate")) || null,
       needText(formData.get("topicId")) || null,
       needText(formData.get("replyTo")) || null,
+      burnSeconds,
       Date.now(),
     ],
   });
@@ -759,4 +776,62 @@ export async function deleteAnnouncementAction(formData: FormData): Promise<void
   await db.execute({ sql: "DELETE FROM announcements WHERE id=?", args: [id] });
   revalidatePath("/admin");
   revalidatePath("/");
+}
+
+// ---------- 阅后即焚 ----------
+export type BurnOpenResult =
+  | { error: string }
+  | { burned: true }
+  | { ok: true; body: string; title: string; genre: string; deadline: number; seconds: number };
+
+/** 收件人拆封：首次拆封启动倒计时并返回正文（唯一一次服务端下发），窗口内可重读，到期即焚 */
+export async function openBurnLetterAction(letterId: string): Promise<BurnOpenResult> {
+  await waitDb();
+  const sess = await getSession();
+  if (!sess) return { error: "请先登录" };
+  const r = await db.execute({ sql: "SELECT * FROM letters WHERE id=?", args: [letterId] });
+  const l = r.rows[0] as any;
+  if (!l) return { error: "信不存在" };
+  if (Number(l.burn_seconds ?? 0) <= 0) return { error: "这封信不是阅后即焚" };
+  if (Number(l.burned) === 1) return { burned: true };
+  if (String(l.recipient_id) !== sess.uid) return { error: "只有收件人能拆封" };
+  if (Number(l.deliver_at) > Date.now()) return { error: "信还在路上，等它送达吧" };
+
+  let burnedAt = Number(l.burned_at ?? 0);
+  if (!burnedAt) {
+    burnedAt = Date.now() + Number(l.burn_seconds) * 1000;
+    await db.execute({
+      sql: "UPDATE letters SET burned_at=?, read_at=? WHERE id=?",
+      args: [burnedAt, Date.now(), letterId],
+    });
+  }
+  if (Date.now() >= burnedAt) {
+    await wipeBurn(letterId);
+    return { burned: true };
+  }
+  return {
+    ok: true,
+    body: String(l.body),
+    title: String(l.title),
+    genre: String(l.genre),
+    deadline: burnedAt,
+    seconds: Number(l.burn_seconds),
+  };
+}
+
+/** 倒计时归零时由客户端调用；服务器校验到期才真正抹除正文 */
+export async function burnLetterAction(letterId: string): Promise<void> {
+  await waitDb();
+  const sess = await getSession();
+  if (!sess) return;
+  const r = await db.execute({
+    sql: "SELECT burn_seconds, burned, burned_at, author_id, recipient_id FROM letters WHERE id=?",
+    args: [letterId],
+  });
+  const l = r.rows[0] as any;
+  if (!l || Number(l.burn_seconds ?? 0) <= 0 || Number(l.burned) === 1) return;
+  if (String(l.author_id) !== sess.uid && String(l.recipient_id) !== sess.uid) return;
+  if (Number(l.burned_at ?? 0) > 0 && Number(l.burned_at) <= Date.now()) {
+    await wipeBurn(letterId);
+  }
 }

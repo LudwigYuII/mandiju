@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { db, waitDb } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { statusOf, fmtTime } from "@/lib/delivery";
+import { expireBurnLetters } from "@/lib/burn-db";
 import Seal from "@/components/Seal";
 import Reveal from "@/components/Reveal";
 
@@ -12,6 +13,8 @@ export default async function MailPage() {
   await waitDb();
   const sess = await getSession();
   if (!sess) redirect("/login");
+
+  await expireBurnLetters(); // 倒计时到期的焚毁信兜底抹除
 
   const rows = await db.execute({
     sql: `
@@ -32,25 +35,38 @@ export default async function MailPage() {
 
   const renderItem = (l: any, i: number, capsule: boolean) => {
     const delivered = statusOf(Number(l.deliver_at)) === "delivered";
+    const isBurn = Number(l.burn_seconds ?? 0) > 0;
+    const burned = Number(l.burned) === 1;
     const stateLabel = capsule
       ? delivered
         ? "已解锁"
         : "沉睡中"
-      : !delivered
-        ? "运输中…"
-        : l.direction === "to"
-          ? l.read_at
-            ? "对方已读"
-            : "已送达 · 未读"
-          : l.read_at
-            ? "已读"
-            : "未读";
+      : burned
+        ? "已焚毁"
+        : isBurn
+          ? !delivered
+            ? "运输中…"
+            : l.direction === "to"
+              ? l.burned_at
+                ? "对方已拆封 · 焚毁中"
+                : "已送达 · 未拆封"
+              : "未拆封 · 阅后即焚"
+          : !delivered
+            ? "运输中…"
+            : l.direction === "to"
+              ? l.read_at
+                ? "对方已读"
+                : "已送达 · 未读"
+              : l.read_at
+                ? "已读"
+                : "未读";
+    const hot = !delivered || stateLabel.includes("未读") || stateLabel.includes("焚");
     return (
       <Reveal key={l.id} delay={Math.min(i, 6) * 60}>
         <Link
           href={`/letter/${l.id}`}
           className={`card glass flex items-center justify-between gap-3 p-4 transition-all duration-300 hover:-translate-y-0.5 ${
-            delivered ? "" : "border-dashed opacity-70"
+            delivered && !burned ? "" : "border-dashed opacity-70"
           }`}
         >
           <div className="flex min-w-0 items-center gap-2.5">
@@ -62,13 +78,14 @@ export default async function MailPage() {
                   {capsule ? "寄给未来的自己" : l.direction === "to" ? "我寄出的" : "寄给我的"}
                 </span>
               </div>
-              <div className="truncate text-xs text-ink-soft">{String(l.title)}</div>
+              <div className="truncate text-xs text-ink-soft">
+                {isBurn && !burned && "🔥 "}
+                {String(l.title)}
+              </div>
             </div>
           </div>
           <div className="shrink-0 text-right text-xs text-ink-soft">
-            <div className={!delivered || stateLabel.includes("未读") ? "font-semibold text-vermilion" : ""}>
-              {stateLabel}
-            </div>
+            <div className={hot ? "font-semibold text-vermilion" : ""}>{stateLabel}</div>
             <div>{fmtTime(Number(l.deliver_at))}</div>
           </div>
         </Link>

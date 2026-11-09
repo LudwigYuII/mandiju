@@ -31,7 +31,12 @@ export type LetterRow = {
 export default function LetterCard({ l, ghost = false }: { l: LetterRow; ghost?: boolean }) {
   const status = statusOf(l.deliver_at);
   const stamp = stampDefById(l.stamp_id);
-  const excerpt = l.body.length > 80 ? l.body.slice(0, 80) + "…" : l.body;
+  const isBurn = Number((l as any).burn_seconds ?? 0) > 0;
+  const excerpt = isBurn
+    ? "🔥 阅后即焚 · 寄出后不再可读"
+    : l.body.length > 80
+      ? l.body.slice(0, 80) + "…"
+      : l.body;
   return (
     <Link
       href={`/letter/${l.id}`}

@@ -204,6 +204,10 @@ async function init() {
   await ensureColumn("letters", "notified", "notified INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("letters", "reply_to", "reply_to TEXT");
   await ensureColumn("letters", "read_at", "read_at INTEGER");
+  await ensureColumn("letters", "burn_seconds", "burn_seconds INTEGER");
+  await ensureColumn("letters", "burned_at", "burned_at INTEGER");
+  await ensureColumn("letters", "burned", "burned INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("drafts", "burn_seconds", "burn_seconds INTEGER");
 
   // 老账号：私印默认取笔名首字
   await db.execute("UPDATE users SET seal_text = substr(pen_name, 1, 1) WHERE seal_text = ''");

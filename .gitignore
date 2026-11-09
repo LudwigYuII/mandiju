@@ -6,3 +6,4 @@ public/uploads
 .vercel
 *.log
 *.tsbuildinfo
+deploy-*.txt

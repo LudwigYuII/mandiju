@@ -33,13 +33,15 @@ export default async function PrintPage({
     letters = await db.execute({
       sql: `SELECT l.*, u.pen_name, u.seal_text FROM letters l JOIN users u ON u.id = l.author_id
             WHERE ((l.author_id = ? AND l.recipient_id = ?) OR (l.author_id = ? AND l.recipient_id = ?))
+              AND (l.burn_seconds IS NULL OR l.burn_seconds = 0)
             ORDER BY l.deliver_at ASC`,
       args: [sess.uid, String((peer.rows[0] as any).id), String((peer.rows[0] as any).id), sess.uid],
     });
   } else {
     letters = await db.execute({
       sql: `SELECT l.*, u.pen_name, u.seal_text FROM letters l JOIN users u ON u.id = l.author_id
-            WHERE l.author_id = ? ORDER BY l.deliver_at ASC`,
+            WHERE l.author_id = ? AND (l.burn_seconds IS NULL OR l.burn_seconds = 0)
+            ORDER BY l.deliver_at ASC`,
       args: [sess.uid],
     });
   }

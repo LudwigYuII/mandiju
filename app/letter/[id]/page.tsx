@@ -15,6 +15,9 @@ import ReplyForm from "@/components/ReplyForm";
 import Reveal from "@/components/Reveal";
 import Envelope from "@/components/Envelope";
 import FriendButton from "@/components/FriendButton";
+import BurnReader from "@/components/BurnReader";
+import { burnLabel } from "@/lib/burn";
+import { wipeBurn } from "@/lib/burn-db";
 
 export const dynamic = "force-dynamic";
 
@@ -31,17 +34,30 @@ export default async function LetterPage({ params }: { params: Promise<{ id: str
     !!sess && (sess.uid === String(l.author_id) || sess.uid === String(l.recipient_id));
   const status = statusOf(Number(l.deliver_at));
   const isCapsule = String(l.postage) === "capsule";
+  const isBurn = Number(l.burn_seconds ?? 0) > 0;
 
   if (l.recipient_id && !isParty) notFound(); // 私信只对双方可见
   if (status === "in_transit" && !isParty) notFound(); // 路上的信不对外
 
-  // 已读回执：收件人首次打开私信（已送达）时记录
+  // 阅后即焚兜底：倒计时到期即抹除正文（即便对方中途关掉页面）
+  let burned = Number(l.burned) === 1;
+  if (isBurn && !burned && Number(l.burned_at ?? 0) > 0 && Number(l.burned_at) <= Date.now()) {
+    await wipeBurn(id);
+    burned = true;
+    l.burned = 1;
+    l.title = "（已焚毁）";
+    l.body = "";
+  }
+
   const isRecipient = !!sess && String(l.recipient_id) === sess.uid;
-  if (isRecipient && status === "delivered" && !l.read_at) {
+  const isAuthor = !!sess && String(l.author_id) === sess.uid;
+
+  // 已读回执：收件人首次打开私信（已送达）时记录；焚毁信在拆封动作里记录
+  if (isRecipient && status === "delivered" && !l.read_at && !isBurn) {
     await db.execute({ sql: "UPDATE letters SET read_at=? WHERE id=?", args: [Date.now(), id] });
     l.read_at = Date.now();
   }
-  const isAuthorOfPrivate = !!sess && String(l.author_id) === sess.uid && !!l.recipient_id && !isCapsule;
+  const isAuthorOfPrivate = isAuthor && !!l.recipient_id && !isCapsule;
 
   const au = await db.execute({ sql: "SELECT * FROM users WHERE id=?", args: [String(l.author_id)] });
   const author = au.rows[0] as any;
@@ -52,6 +68,104 @@ export default async function LetterPage({ params }: { params: Promise<{ id: str
       args: [String(l.recipient_id)],
     });
     recipientPen = String(rr.rows[0]?.pen_name ?? "");
+  }
+
+  // ---------- 阅后即焚：独立的页面流 ----------
+  if (isBurn) {
+    const stamp = stampDefById(String(l.stamp_id));
+    if (burned) {
+      return (
+        <div className="mx-auto max-w-md space-y-4 py-10 text-center">
+          <div className="card glass grain p-8">
+            <div className="ash-rise text-4xl">🔥</div>
+            <h1 className="mt-4 text-2xl font-semibold tracking-tight">已焚毁</h1>
+            <p className="mt-3 text-sm leading-relaxed text-ink-soft">
+              这封信已在 {fmtTime(Number(l.burned_at))} 阅后即焚，
+              <br />
+              连灰烬也没能留下。
+            </p>
+            <p className="mt-4 text-xs text-ink-soft">
+              {isAuthor ? `你寄给 ${recipientPen} 的信` : `${String(author.pen_name)} 寄给你的信`}
+            </p>
+          </div>
+          <Link href="/mail" className="text-sm text-ink-soft hover:text-ink">
+            ← 回往来信笺
+          </Link>
+        </div>
+      );
+    }
+
+    if (isAuthor) {
+      return (
+        <div className="mx-auto max-w-md space-y-4 py-10 text-center">
+          <div className="card glass grain p-8">
+            <div className="text-4xl">🔥</div>
+            <h1 className="mt-4 text-2xl font-semibold tracking-tight">阅后即焚</h1>
+            <p className="mt-3 text-sm leading-relaxed text-ink-soft">
+              这封信在寄出的那一刻就已封存——连你自己也无法再读。
+              <br />
+              唯一一次拆封机会，留给 {recipientPen}。
+            </p>
+            <p className="mt-5 rounded-xl border border-dashed border-vermilion/40 bg-vermilion/5 px-3 py-2 text-sm text-vermilion">
+              {status === "in_transit"
+                ? `🚚 还在路上，预计 ${fmtTime(Number(l.deliver_at))} 送达`
+                : Number(l.burned_at ?? 0) > 0
+                  ? `对方已拆封 · ${burnLabel(Number(l.burn_seconds))} 倒计时已开始`
+                  : "已送达 · 对方还未拆封"}
+            </p>
+          </div>
+          <Link href="/mail" className="text-sm text-ink-soft hover:text-ink">
+            ← 回往来信笺
+          </Link>
+        </div>
+      );
+    }
+
+    if (isRecipient && status === "in_transit") {
+      return (
+        <div className="mx-auto max-w-md space-y-4 py-10 text-center">
+          <div className="card glass grain p-8">
+            <div className="text-4xl">🔥</div>
+            <h1 className="mt-4 text-2xl font-semibold tracking-tight">阅后即焚</h1>
+            <p className="mt-3 text-sm leading-relaxed text-ink-soft">
+              {String(author.pen_name)} 的信还在路上，预计 {fmtTime(Number(l.deliver_at))} 送达。
+              <br />
+              送达后拆封即开始 {burnLabel(Number(l.burn_seconds))} 倒计时，读完即焚，只能看这一次。
+            </p>
+          </div>
+          <Link href="/mail" className="text-sm text-ink-soft hover:text-ink">
+            ← 回往来信笺
+          </Link>
+        </div>
+      );
+    }
+
+    if (isRecipient) {
+      return (
+        <div className="space-y-4">
+          <Link href="/mail" className="text-sm text-ink-soft">
+            ← 回往来信笺
+          </Link>
+          <Reveal>
+            <BurnReader
+              letterId={id}
+              meta={{
+                pen: String(author.pen_name),
+                seal: String(author.seal_text || author.pen_name[0]),
+                stampFile: stamp?.file ?? null,
+                city: l.city ? String(l.city) : "",
+                deliverAt: Number(l.deliver_at),
+                genre: String(l.genre),
+                postage: String(l.postage),
+                cost: Number(l.cost ?? 0),
+                recipientPen: recipientPen ?? "",
+                burnSeconds: Number(l.burn_seconds),
+              }}
+            />
+          </Reveal>
+        </div>
+      );
+    }
   }
 
   const likes = await db.execute({ sql: "SELECT user_id FROM likes WHERE letter_id=?", args: [id] });

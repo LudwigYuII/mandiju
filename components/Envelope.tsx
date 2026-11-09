@@ -77,7 +77,7 @@ export default function Envelope({
 }
 
 /** 纸张窸窣声 */
-function rustle() {
+export function rustle() {
   try {
     const Ctx = window.AudioContext || (window as any).webkitAudioContext;
     const ctx = new Ctx();

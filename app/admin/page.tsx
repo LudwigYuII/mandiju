@@ -32,7 +32,7 @@ export default async function AdminPage() {
       db.execute("SELECT COUNT(*) AS n FROM replies"),
       db.execute("SELECT COUNT(*) AS n FROM invites WHERE used_by IS NULL"),
     ]),
-    db.execute(`SELECT l.id, l.title, l.genre, l.deliver_at, l.recipient_id, u.pen_name
+    db.execute(`SELECT l.id, l.title, l.genre, l.deliver_at, l.recipient_id, l.burn_seconds, l.burned, u.pen_name
                 FROM letters l JOIN users u ON u.id = l.author_id
                 ORDER BY l.sent_at DESC LIMIT 20`),
     db.execute("SELECT * FROM announcements ORDER BY pinned DESC, created_at DESC LIMIT 20"),
@@ -195,6 +195,11 @@ export default async function AdminPage() {
               >
                 <Link href={`/letter/${l.id}`} className="min-w-0 flex-1">
                   <span className="truncate">{String(l.title)}</span>
+                  {Number(l.burn_seconds ?? 0) > 0 && (
+                    <span className="ml-1.5 rounded-full bg-vermilion/15 px-1.5 py-0.5 text-[10px] text-vermilion">
+                      {Number(l.burned) === 1 ? "已焚毁" : "阅后即焚"}
+                    </span>
+                  )}
                   <span className="ml-2 text-xs text-ink-soft">
                     {String(l.pen_name)} · {String(l.recipient_id) ? "私信" : "公开"} ·{" "}
                     {fmtTime(Number(l.deliver_at))}

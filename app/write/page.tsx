@@ -84,6 +84,7 @@ export default async function WritePage({
           capsuleDate: String(d.capsule_date ?? ""),
           topicId: String(d.topic_id ?? ""),
           replyTo: String(d.reply_to ?? ""),
+          burnSeconds: String(d.burn_seconds ?? ""),
           updatedAt: Number(d.updated_at),
         }))}
       />
