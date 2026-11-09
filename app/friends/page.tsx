@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { waitDb } from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { gateOnboard } from "@/lib/onboard";
 import { friendList, pendingRequestsFor, searchPen, friendshipBetween } from "@/lib/friends";
 import {
   acceptFriendAction,
@@ -20,7 +20,7 @@ export default async function FriendsPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   await waitDb();
-  const sess = await getSession();
+  const sess = await gateOnboard();
   if (!sess) redirect("/login");
 
   const { q = "" } = await searchParams;

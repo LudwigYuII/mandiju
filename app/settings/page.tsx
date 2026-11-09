@@ -11,6 +11,7 @@ import GenerateInvites from "@/components/GenerateInvites";
 import SealEditor from "@/components/SealEditor";
 import ProfileAvatarEditor from "@/components/ProfileAvatarEditor";
 import AppearancePanel from "@/components/AppearancePanel";
+import PushToggle from "@/components/PushToggle";
 import BirthdayEditor from "@/components/BirthdayEditor";
 
 export const dynamic = "force-dynamic";
@@ -78,6 +79,16 @@ export default async function SettingsPage() {
         <p className="mt-1 text-xs text-ink-soft">主题、全站字体与简繁切换，仅对本设备生效。</p>
         <div className="mt-4">
           <AppearancePanel />
+        </div>
+      </section>
+
+      <section className="card glass p-5">
+        <h2 className="text-sm font-semibold tracking-widest">通知</h2>
+        <p className="mt-1 text-xs text-ink-soft">
+          新信送达时向本设备推送提醒；只在本设备生效，可随时取消。
+        </p>
+        <div className="mt-4">
+          <PushToggle />
         </div>
       </section>
 

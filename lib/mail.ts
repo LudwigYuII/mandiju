@@ -1,6 +1,7 @@
 // 邮件通知：接入 Resend（未配置时降级为控制台日志）
 import { db } from "./db";
 import { notify } from "./notify";
+import { sendPushToUser } from "./push";
 
 export async function sendMail(to: string, subject: string, text: string) {
   const key = process.env.RESEND_API_KEY;
@@ -72,6 +73,25 @@ export async function sweepDelivered() {
           : `你收到一封信：《${String(r.title)}》`,
       link
     );
+    // Web Push（未配置 VAPID 时静默跳过）
+    try {
+      await sendPushToUser(
+        String(r.recipient_id),
+        isCapsule
+          ? "慢递局 · 时光胶囊已解锁"
+          : isBurn
+            ? "慢递局 · 阅后即焚"
+            : "慢递局 · 你收到一封信",
+        isCapsule
+          ? `你写给自己的信《${String(r.title)}》到期了`
+          : isBurn
+            ? `${String(r.author_pen)} 寄来一封阅后即焚的信，拆封即燃`
+            : `${String(r.author_pen)} 寄来一封信：《${String(r.title)}》`,
+        link
+      );
+    } catch {
+      /* push 失败不影响送达 */
+    }
   }
   if (rows.rows.length > 0) {
     await db.execute({

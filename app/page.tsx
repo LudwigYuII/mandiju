@@ -1,7 +1,7 @@
 import Link from "next/link";
 import quotes from "@/data/quotes.json";
 import { db, waitDb } from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { gateOnboard } from "@/lib/onboard";
 import { sweepDelivered } from "@/lib/mail";
 import { todayFirstDay, upcomingFirstDays } from "@/lib/calendar";
 import { fmtTime } from "@/lib/delivery";
@@ -19,7 +19,7 @@ export default async function Home({
   searchParams: Promise<{ page?: string }>;
 }) {
   await waitDb();
-  const sess = await getSession();
+  const sess = await gateOnboard();
   const { page: pageRaw } = await searchParams;
   const page = Math.max(1, Number(pageRaw) || 1);
   const offset = (page - 1) * PAGE_SIZE;

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { db, waitDb } from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { gateOnboard } from "@/lib/onboard";
 import { statusOf, fmtTime } from "@/lib/delivery";
 import { expireBurnLetters } from "@/lib/burn-db";
 import Seal from "@/components/Seal";
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function MailPage() {
   await waitDb();
-  const sess = await getSession();
+  const sess = await gateOnboard();
   if (!sess) redirect("/login");
 
   await expireBurnLetters(); // 倒计时到期的焚毁信兜底抹除
@@ -61,15 +61,17 @@ export default async function MailPage() {
                 ? "已读"
                 : "未读";
     const hot = !delivered || stateLabel.includes("未读") || stateLabel.includes("焚");
+    const corrUrl = capsule
+      ? null
+      : `/correspondence/${encodeURIComponent(String(l.peer_pen))}`;
     return (
       <Reveal key={l.id} delay={Math.min(i, 6) * 60}>
-        <Link
-          href={`/letter/${l.id}`}
+        <div
           className={`card glass flex items-center justify-between gap-3 p-4 transition-all duration-300 hover:-translate-y-0.5 ${
             delivered && !burned ? "" : "border-dashed opacity-70"
           }`}
         >
-          <div className="flex min-w-0 items-center gap-2.5">
+          <Link href={`/letter/${l.id}`} className="flex min-w-0 flex-1 items-center gap-2.5">
             <Seal char={String(l.peer_seal || l.peer_pen[0])} size={36} tone={capsule ? "vermilion" : "blue"} />
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-sm font-semibold">
@@ -83,12 +85,22 @@ export default async function MailPage() {
                 {String(l.title)}
               </div>
             </div>
+          </Link>
+          <div className="flex shrink-0 items-center gap-2.5">
+            <div className="text-right text-xs text-ink-soft">
+              <div className={hot ? "font-semibold text-vermilion" : ""}>{stateLabel}</div>
+              <div>{fmtTime(Number(l.deliver_at))}</div>
+            </div>
+            {corrUrl && (
+              <Link
+                href={corrUrl}
+                className="whitespace-nowrap rounded-full border border-black/10 px-2.5 py-1 text-[11px] text-ink-soft transition hover:border-vermilion/50 hover:text-vermilion dark:border-white/15"
+              >
+                往来册 →
+              </Link>
+            )}
           </div>
-          <div className="shrink-0 text-right text-xs text-ink-soft">
-            <div className={hot ? "font-semibold text-vermilion" : ""}>{stateLabel}</div>
-            <div>{fmtTime(Number(l.deliver_at))}</div>
-          </div>
-        </Link>
+        </div>
       </Reveal>
     );
   };

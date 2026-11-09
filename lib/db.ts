@@ -181,6 +181,14 @@ async function init() {
       created_by TEXT,
       created_at INTEGER NOT NULL
     )`,
+    `CREATE TABLE IF NOT EXISTS push_subs (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      endpoint TEXT NOT NULL,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )`,
     `CREATE INDEX IF NOT EXISTS idx_letters_deliver ON letters(deliver_at)`,
     `CREATE INDEX IF NOT EXISTS idx_letters_author ON letters(author_id)`,
     `CREATE INDEX IF NOT EXISTS idx_letters_recipient ON letters(recipient_id)`,
@@ -188,6 +196,7 @@ async function init() {
     `CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, read)`,
     `CREATE INDEX IF NOT EXISTS idx_drafts_user ON drafts(user_id)`,
     `CREATE INDEX IF NOT EXISTS idx_friends_addressee ON friends(addressee_id, status)`,
+    `CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subs(user_id)`,
   ];
   for (const s of stmts) {
     await db.execute(s);
@@ -198,6 +207,7 @@ async function init() {
   await ensureColumn("users", "coins", "coins INTEGER NOT NULL DEFAULT 500");
   await ensureColumn("users", "last_coin_at", "last_coin_at INTEGER");
   await ensureColumn("users", "banned", "banned INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("users", "onboarded_at", "onboarded_at INTEGER");
   await ensureColumn("letters", "cost", "cost INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("letters", "image", "image TEXT");
   await ensureColumn("letters", "first_day", "first_day INTEGER NOT NULL DEFAULT 0");
@@ -207,7 +217,15 @@ async function init() {
   await ensureColumn("letters", "burn_seconds", "burn_seconds INTEGER");
   await ensureColumn("letters", "burned_at", "burned_at INTEGER");
   await ensureColumn("letters", "burned", "burned INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("letters", "seal_color", "seal_color TEXT NOT NULL DEFAULT 'vermilion'");
+  await ensureColumn("letters", "seal_pattern", "seal_pattern TEXT NOT NULL DEFAULT 'plain'");
+  await ensureColumn("letters", "paper", "paper TEXT NOT NULL DEFAULT 'plain'");
+  await ensureColumn("letters", "vertical", "vertical INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("drafts", "burn_seconds", "burn_seconds INTEGER");
+  await ensureColumn("drafts", "seal_color", "seal_color TEXT");
+  await ensureColumn("drafts", "seal_pattern", "seal_pattern TEXT");
+  await ensureColumn("drafts", "paper", "paper TEXT");
+  await ensureColumn("drafts", "vertical", "vertical INTEGER");
 
   // 老账号：私印默认取笔名首字
   await db.execute("UPDATE users SET seal_text = substr(pen_name, 1, 1) WHERE seal_text = ''");

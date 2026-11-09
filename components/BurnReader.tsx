@@ -6,12 +6,19 @@ import { openBurnLetterAction, burnLetterAction } from "@/lib/actions";
 import { genreLabel, postageLabel, fmtTime } from "@/lib/delivery";
 import { burnLabel } from "@/lib/burn";
 import { rustle } from "./Envelope";
-import Seal from "./Seal";
+import Seal, { sealToneOf, sealPatternOf, sealToneToRender, type LetterSealTone, type SealPattern } from "./Seal";
+import { paperKindOf, paperClass, type PaperKind } from "./paper";
 import Stamp from "./Stamp";
 
 type Meta = {
   pen: string;
   seal: string;
+  /** 信件自己的火漆色（旧信回落朱红） */
+  sealColor?: LetterSealTone | string | null;
+  /** 信件自己的火漆纹样（旧信回落素面） */
+  sealPattern?: SealPattern | string | null;
+  paper?: PaperKind | string | null;
+  vertical?: number;
   stampFile: string | null;
   city: string;
   deliverAt: number;
@@ -128,7 +135,12 @@ export default function BurnReader({ letterId, meta }: { letterId: string; meta:
           />
           {/* 火漆印 */}
           <div className="envelope-seal relative z-[3] mt-16">
-            <Seal char={meta.seal} size={76} tone="vermilion" />
+            <Seal
+              char={meta.seal}
+              size={76}
+              tone={sealToneToRender(sealToneOf(meta.sealColor))}
+              pattern={sealPatternOf(meta.sealPattern)}
+            />
           </div>
           <p className="relative z-[3] mt-4 text-xs tracking-[0.3em] text-ink-soft">
             {phase === "fetching" ? "正在拆封…" : "🔥 拆封即燃"}
@@ -144,6 +156,8 @@ export default function BurnReader({ letterId, meta }: { letterId: string; meta:
   if (phase === "reading" && content) {
     const secs = Math.ceil(remaining / 1000);
     const pct = Math.max(0, Math.min(100, (remaining / (meta.burnSeconds * 1000)) * 100));
+    const paper = paperKindOf(meta.paper);
+    const vertical = Number(meta.vertical) === 1;
     return (
       <div className="space-y-4 pb-24">
         {/* 焚毁倒计时条 */}
@@ -157,7 +171,7 @@ export default function BurnReader({ letterId, meta }: { letterId: string; meta:
           </div>
         </div>
 
-        <article className="letter-reveal card glass grain p-6">
+        <article className={`letter-reveal card glass grain ${paperClass(paper)} p-6`}>
           {/* 抬头 */}
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex items-center gap-2.5">
@@ -177,18 +191,27 @@ export default function BurnReader({ letterId, meta }: { letterId: string; meta:
           <div
             className={`mt-3 whitespace-pre-wrap text-[17px] ${
               content.genre === "poem" ? "poem" : "prose-letter"
-            }`}
+            } ${vertical ? "writing-vertical" : ""}`}
           >
             {content.body}
           </div>
 
           {/* 落款 */}
-          <div className="mt-6 flex items-end justify-between border-t border-black/5 pt-4 dark:border-white/10">
+          <div
+            className={`mt-6 flex items-end justify-between border-t pt-4 ${
+              paper === "night" ? "border-white/15" : "border-black/5 dark:border-white/10"
+            }`}
+          >
             <div className="text-sm text-ink-soft">
               {meta.city || "未盖章"}
               <div className="mt-1 text-xs">{fmtTime(meta.deliverAt)} 送达</div>
             </div>
-            <Seal char={meta.seal} size={44} />
+            <Seal
+              char={meta.seal}
+              size={44}
+              tone={sealToneToRender(sealToneOf(meta.sealColor))}
+              pattern={sealPatternOf(meta.sealPattern)}
+            />
           </div>
         </article>
       </div>

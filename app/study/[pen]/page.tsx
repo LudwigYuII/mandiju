@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db, waitDb } from "@/lib/db";
 import { getSession } from "@/lib/auth";
@@ -36,6 +37,20 @@ export default async function StudyPage({ params }: { params: Promise<{ pen: str
     ? imgUrl(String(u.avatar_id).slice(7))
     : avatarFile(String(u.avatar_id));
 
+  // 是否笔友或曾往来：满足任一即可进入「往来册」
+  let exchanged = false;
+  if (sess && !isMe) {
+    const c = await db.execute({
+      sql: `SELECT 1 FROM letters
+            WHERE ((author_id = ? AND recipient_id = ?) OR (author_id = ? AND recipient_id = ?))
+              AND author_id != recipient_id
+            LIMIT 1`,
+      args: [sess.uid, String(u.id), String(u.id), sess.uid],
+    });
+    exchanged = c.rows.length > 0;
+  }
+  const showCorrespondence = !!sess && !isMe && (rel === "friends" || exchanged);
+
   return (
     <div className="space-y-5">
       {/* 题签 */}
@@ -54,6 +69,14 @@ export default async function StudyPage({ params }: { params: Promise<{ pen: str
           </div>
           <div className="flex flex-col items-end gap-2 pb-1">
             <Seal char={String(u.seal_text || u.pen_name[0])} size={48} tone="vermilion" />
+            {showCorrespondence && (
+              <Link
+                href={`/correspondence/${encodeURIComponent(String(u.pen_name))}`}
+                className="btn !px-4 !py-1.5 !text-sm"
+              >
+                往来册
+              </Link>
+            )}
             {sess && !isMe && (
               <FriendButton targetId={String(u.id)} pen={String(u.pen_name)} rel={rel} />
             )}

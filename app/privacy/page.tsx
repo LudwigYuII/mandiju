@@ -1,9 +1,22 @@
+import Link from "next/link";
 import Reveal from "@/components/Reveal";
 
 export default function PrivacyPage() {
   return (
     <div className="space-y-6">
       <h1 className="rise text-3xl font-semibold tracking-tight">隐私政策</h1>
+      <Reveal>
+        <section className="card glass p-6">
+          <h2 className="text-lg font-semibold tracking-tight">客户端下载</h2>
+          <p className="mt-1.5 text-[15px] leading-relaxed text-ink-soft">
+            安卓 App 与桌面安装指引，见{" "}
+            <Link href="/download" className="text-vermilion hover:underline">
+              下载页
+            </Link>
+            。
+          </p>
+        </section>
+      </Reveal>
       <Reveal>
         <section className="card glass space-y-4 p-6 text-[15px] leading-relaxed">
           <p>「慢递局」是一个属于站长与好友们的小圈子笔友网站。我们重视每位笔友的隐私，并尽可能少地收集数据。</p>

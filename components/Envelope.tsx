@@ -1,18 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Seal from "./Seal";
+import Seal, { sealToneOf, sealPatternOf, sealToneToRender, type LetterSealTone, type SealPattern } from "./Seal";
 
 /** 信封拆封仪式：首次打开一封信时，先看到封好的信封，点击启封后展开信纸 */
 export default function Envelope({
   letterId,
   seal,
   children,
+  sealColor,
+  sealPattern,
 }: {
   letterId: string;
   seal: string;
   children: React.ReactNode;
+  /** 信件自己的火漆色（旧信无此字段时回落朱红） */
+  sealColor?: LetterSealTone | string | null;
+  /** 信件自己的火漆纹样（旧信无此字段时回落素面） */
+  sealPattern?: SealPattern | string | null;
 }) {
+  const tone = sealToneToRender(sealToneOf(sealColor));
+  const pattern = sealPatternOf(sealPattern);
   const [phase, setPhase] = useState<"sealed" | "opening" | "open">("sealed");
 
   useEffect(() => {
@@ -67,7 +75,7 @@ export default function Envelope({
         />
         {/* 火漆印 */}
         <div className="envelope-seal relative z-[3] mt-16">
-          <Seal char={seal} size={76} tone="vermilion" />
+          <Seal char={seal} size={76} tone={tone} pattern={pattern} />
         </div>
         <p className="relative z-[3] mt-4 text-xs tracking-[0.3em] text-ink-soft">点击启封</p>
         <p className="relative z-[3] mt-1 text-[11px] text-ink-soft/70">寄给你的信，要亲手拆开</p>

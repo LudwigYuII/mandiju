@@ -4,7 +4,8 @@ import { db, waitDb } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { genreLabel, fmtTime } from "@/lib/delivery";
 import Postmark from "@/components/Postmark";
-import Seal from "@/components/Seal";
+import Seal, { sealToneOf, sealPatternOf, sealToneToRender } from "@/components/Seal";
+import { paperKindOf, paperClass } from "@/components/paper";
 import PrintButton from "@/components/PrintButton";
 
 export const dynamic = "force-dynamic";
@@ -69,25 +70,42 @@ export default async function PrintPage({
       <p className="mt-1 text-center text-xs text-ink-soft">共 {letters.rows.length} 封 · 慢递局印制</p>
 
       <div className="mt-6 space-y-0">
-        {letters.rows.map((l: any) => (
-          <article key={l.id} className="letter-sheet">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="text-sm text-ink-soft">
-                {String(l.pen_name)} · {genreLabel(String(l.genre))}
-                {l.recipient_id ? " · 私信" : ""}
+        {letters.rows.map((l: any) => {
+          const paperKind = paperKindOf(l.paper);
+          const vertical = Number(l.vertical) === 1;
+          return (
+            <article key={l.id} className={`letter-sheet ${paperClass(paperKind)}`}>
+              <div className="mb-3 flex items-center justify-between">
+                <div className="text-sm text-ink-soft">
+                  {String(l.pen_name)} · {genreLabel(String(l.genre))}
+                  {l.recipient_id ? " · 私信" : ""}
+                </div>
+                <Postmark city={l.city} time={Number(l.deliver_at)} size={88} firstDay={Number(l.first_day) === 1} />
               </div>
-              <Postmark city={l.city} time={Number(l.deliver_at)} size={88} firstDay={Number(l.first_day) === 1} />
-            </div>
-            <h2 className="text-lg font-semibold tracking-tight">{String(l.title)}</h2>
-            <p className={`mt-3 whitespace-pre-wrap text-[15px] leading-relaxed ${l.genre === "poem" ? "text-center" : ""}`}>
-              {String(l.body)}
-            </p>
-            <div className="mt-4 flex items-end justify-between border-t border-black/10 pt-3">
-              <span className="text-xs text-ink-soft">{fmtTime(Number(l.sent_at))} 投递于 {l.city || "慢递局"}</span>
-              <Seal char={String(l.seal_text || l.pen_name[0])} size={34} />
-            </div>
-          </article>
-        ))}
+              <h2 className="text-lg font-semibold tracking-tight">{String(l.title)}</h2>
+              <p
+                className={`mt-3 whitespace-pre-wrap text-[15px] leading-relaxed ${
+                  l.genre === "poem" ? "text-center" : ""
+                } ${vertical ? "writing-vertical" : ""}`}
+              >
+                {String(l.body)}
+              </p>
+              <div
+                className={`mt-4 flex items-end justify-between border-t pt-3 ${
+                  paperKind === "night" ? "border-white/15" : "border-black/10"
+                }`}
+              >
+                <span className="text-xs text-ink-soft">{fmtTime(Number(l.sent_at))} 投递于 {l.city || "慢递局"}</span>
+                <Seal
+                  char={String(l.seal_text || l.pen_name[0])}
+                  size={34}
+                  tone={sealToneToRender(sealToneOf(l.seal_color))}
+                  pattern={sealPatternOf(l.seal_pattern)}
+                />
+              </div>
+            </article>
+          );
+        })}
       </div>
     </div>
   );

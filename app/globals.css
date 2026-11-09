@@ -378,3 +378,130 @@ html[data-font="fang"] {
     top: 5.5rem;
   }
 }
+
+/* ============ 信纸与火漆（UI 队友追加） ============ */
+
+/* 青碧（玉色）火漆蜡 */
+:root {
+  --jade: #3f7d6e;
+}
+.dark {
+  --jade: #6ba793;
+}
+
+/* 素笺：无修饰 */
+.paper-plain {
+}
+
+/* 宣纸：细腻纤维纹理，微米色 */
+.paper-xuan {
+  background-color: color-mix(in srgb, var(--paper) 88%, #f7efd8 12%);
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(161, 138, 90, 0.032) 0px,
+      rgba(161, 138, 90, 0.032) 1px,
+      transparent 1px,
+      transparent 3px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(161, 138, 90, 0.024) 0px,
+      rgba(161, 138, 90, 0.024) 1px,
+      transparent 1px,
+      transparent 5px
+    ),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+}
+.dark .paper-xuan {
+  background-color: color-mix(in srgb, var(--paper) 94%, #2c2517 6%);
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(214, 197, 158, 0.04) 0px,
+      rgba(214, 197, 158, 0.04) 1px,
+      transparent 1px,
+      transparent 3px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(214, 197, 158, 0.03) 0px,
+      rgba(214, 197, 158, 0.03) 1px,
+      transparent 1px,
+      transparent 5px
+    );
+}
+
+/* 洒金：极淡金色小斑点 */
+.paper-gold {
+  background-color: color-mix(in srgb, var(--paper) 92%, #f3dfa8 8%);
+  background-image:
+    radial-gradient(circle at 14px 22px, rgba(206, 168, 62, 0.22) 0 1.2px, transparent 1.8px),
+    radial-gradient(circle at 52px 10px, rgba(206, 168, 62, 0.16) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 84px 30px, rgba(206, 168, 62, 0.2) 0 1.1px, transparent 1.7px),
+    radial-gradient(circle at 30px 52px, rgba(206, 168, 62, 0.14) 0 0.9px, transparent 1.5px),
+    radial-gradient(circle at 68px 58px, rgba(206, 168, 62, 0.18) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 8px 8px, rgba(206, 168, 62, 0.12) 0 0.8px, transparent 1.4px);
+  background-size: 92px 64px;
+}
+.dark .paper-gold {
+  background-color: color-mix(in srgb, var(--paper) 95%, #4a3f22 5%);
+}
+
+/* 夜笺：极深蓝黑底，浅色文字（明暗模式皆宜） */
+.paper-night {
+  background-color: #101a28;
+  background-image:
+    radial-gradient(1100px 500px at 15% -8%, rgba(255, 255, 255, 0.05), transparent 55%),
+    radial-gradient(900px 500px at 90% 108%, rgba(124, 156, 187, 0.08), transparent 55%);
+  color: #ddd6c6;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.dark .paper-night {
+  background-color: #0a0f16;
+}
+.paper-night .text-ink-soft {
+  color: rgba(222, 214, 197, 0.62);
+}
+
+/* 竖排书写 */
+.writing-vertical {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  max-height: 34rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  line-height: 2.2;
+  letter-spacing: 0.05em;
+}
+.writing-vertical::-webkit-scrollbar {
+  height: 6px;
+}
+.writing-vertical::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 999px;
+}
+.dark .writing-vertical::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+}
+@media print {
+  .writing-vertical {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+/* 信笺屏幕样式（打印版式沿用既有 @media print 规则） */
+@media screen {
+  .letter-sheet {
+    max-width: 46rem;
+    margin-inline: auto;
+    padding: 2.4rem 1.5rem 2.8rem;
+  }
+  .letter-sheet + .letter-sheet {
+    border-top: 1px dashed rgba(0, 0, 0, 0.14);
+  }
+  .dark .letter-sheet + .letter-sheet {
+    border-top-color: rgba(255, 255, 255, 0.16);
+  }
+}

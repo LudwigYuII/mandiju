@@ -110,10 +110,17 @@ export async function createLetterAction(_prev: ActionState, formData: FormData)
   const replyTo = needText(formData.get("replyTo"));
   const draftId = needText(formData.get("draftId"));
   const burnSecondsRaw = needText(formData.get("burnSeconds"));
+  const sealColor = needText(formData.get("sealColor")) || "vermilion";
+  const sealPattern = needText(formData.get("sealPattern")) || "plain";
+  const paper = needText(formData.get("paper")) || "plain";
+  const verticalRaw = needText(formData.get("vertical"));
 
   if (!["letter", "daily", "poem", "postcard"].includes(genre)) return { error: "请选择体裁" };
   if (!city) return { error: "请填写城市名（官戳要盖章）" };
   if (!stampId) return { error: "请选择一枚邮票" };
+  if (!["vermilion", "indigo", "ink", "jade"].includes(sealColor)) return { error: "火漆颜色无效" };
+  if (!["plain", "wave", "star", "rings"].includes(sealPattern)) return { error: "火漆纹样无效" };
+  if (!["plain", "xuan", "gold", "night"].includes(paper)) return { error: "信纸样式无效" };
 
   // 时光胶囊：寄给未来的自己
   const isCapsule = recipientPen === "__future__";
@@ -201,8 +208,8 @@ export async function createLetterAction(_prev: ActionState, formData: FormData)
   const deliverMs = isCapsule ? capsuleAt : deliverAt(postage, now);
 
   await db.execute({
-    sql: `INSERT INTO letters(id, author_id, recipient_id, genre, title, body, postage, stamp_id, weather, city, temp, cost, image, first_day, reply_to, sent_at, deliver_at, burn_seconds)
-          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    sql: `INSERT INTO letters(id, author_id, recipient_id, genre, title, body, postage, stamp_id, weather, city, temp, cost, image, first_day, reply_to, sent_at, deliver_at, burn_seconds, seal_color, seal_pattern, paper, vertical)
+          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     args: [
       id, sess.uid, recipientId, genre,
       title || (genre === "postcard" ? "明信片" : "无题"),
@@ -219,6 +226,10 @@ export async function createLetterAction(_prev: ActionState, formData: FormData)
       now,
       deliverMs,
       burnSeconds,
+      sealColor,
+      sealPattern,
+      paper,
+      verticalRaw === "1" ? 1 : 0,
     ],
   });
   if (draftId) {
@@ -478,14 +489,26 @@ export async function saveDraftAction(_prev: ActionState, formData: FormData): P
   const burnRaw = needText(formData.get("burnSeconds"));
   const burnSeconds =
     burnRaw && (BURN_OPTIONS as readonly number[]).includes(Number(burnRaw)) ? Number(burnRaw) : null;
+  const sealColor = ["vermilion", "indigo", "ink", "jade"].includes(needText(formData.get("sealColor")))
+    ? needText(formData.get("sealColor"))
+    : null;
+  const sealPattern = ["plain", "wave", "star", "rings"].includes(needText(formData.get("sealPattern")))
+    ? needText(formData.get("sealPattern"))
+    : null;
+  const paper = ["plain", "xuan", "gold", "night"].includes(needText(formData.get("paper")))
+    ? needText(formData.get("paper"))
+    : null;
+  const vertical = needText(formData.get("vertical")) === "1" ? 1 : null;
   await db.execute({
-    sql: `INSERT INTO drafts(id, user_id, genre, title, body, postage, stamp_id, recipient, city, weather, image, capsule_date, topic_id, reply_to, burn_seconds, updated_at)
-          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    sql: `INSERT INTO drafts(id, user_id, genre, title, body, postage, stamp_id, recipient, city, weather, image, capsule_date, topic_id, reply_to, burn_seconds, seal_color, seal_pattern, paper, vertical, updated_at)
+          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
           ON CONFLICT(id) DO UPDATE SET genre=excluded.genre, title=excluded.title, body=excluded.body,
             postage=excluded.postage, stamp_id=excluded.stamp_id, recipient=excluded.recipient,
             city=excluded.city, weather=excluded.weather, image=excluded.image,
             capsule_date=excluded.capsule_date, topic_id=excluded.topic_id, reply_to=excluded.reply_to,
-            burn_seconds=excluded.burn_seconds, updated_at=excluded.updated_at`,
+            burn_seconds=excluded.burn_seconds, seal_color=excluded.seal_color,
+            seal_pattern=excluded.seal_pattern, paper=excluded.paper, vertical=excluded.vertical,
+            updated_at=excluded.updated_at`,
     args: [
       id, sess.uid, genre, title || null, body || null,
       needText(formData.get("postage")) || null,
@@ -498,6 +521,10 @@ export async function saveDraftAction(_prev: ActionState, formData: FormData): P
       needText(formData.get("topicId")) || null,
       needText(formData.get("replyTo")) || null,
       burnSeconds,
+      sealColor,
+      sealPattern,
+      paper,
+      vertical,
       Date.now(),
     ],
   });
@@ -834,4 +861,17 @@ export async function burnLetterAction(letterId: string): Promise<void> {
   if (Number(l.burned_at ?? 0) > 0 && Number(l.burned_at) <= Date.now()) {
     await wipeBurn(letterId);
   }
+}
+
+// ---------- 入站指引 ----------
+export async function confirmOnboardAction(): Promise<void> {
+  await waitDb();
+  const sess = await getSession();
+  if (!sess) redirect("/login");
+  await db.execute({
+    sql: "UPDATE users SET onboarded_at=? WHERE id=? AND onboarded_at IS NULL",
+    args: [Date.now(), sess.uid],
+  });
+  revalidatePath("/");
+  redirect("/");
 }

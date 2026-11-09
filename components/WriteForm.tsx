@@ -13,6 +13,14 @@ import { imgUrl } from "@/lib/assets";
 import Stamp from "./Stamp";
 import Postmark from "./Postmark";
 import FutureDatePicker from "./FutureDatePicker";
+import Seal, {
+  sealToneOf,
+  sealPatternOf,
+  sealToneToRender,
+  type LetterSealTone,
+  type SealPattern,
+} from "./Seal";
+import { paperKindOf, paperClass, type PaperKind } from "./paper";
 
 type PenPal = { pen: string; avatarId: string; bgId: string; via?: "friend" | "replied" };
 type StampOpt = { id: string; name: string; file: string; seasonal?: string };
@@ -32,8 +40,33 @@ type Draft = {
   topicId: string;
   replyTo: string;
   burnSeconds: string;
+  sealColor: string;
+  sealPattern: string;
+  paper: string;
+  vertical: string;
   updatedAt: number;
 };
+
+const SEAL_COLORS: { id: LetterSealTone; label: string; swatch: string }[] = [
+  { id: "vermilion", label: "朱红", swatch: "#c03a2b" },
+  { id: "indigo", label: "靛蓝", swatch: "#4a6b8a" },
+  { id: "ink", label: "墨黑", swatch: "#433d35" },
+  { id: "jade", label: "青碧", swatch: "#3f7d6e" },
+];
+
+const SEAL_PATTERNS: { id: SealPattern; label: string }[] = [
+  { id: "plain", label: "素面" },
+  { id: "wave", label: "水波" },
+  { id: "star", label: "星光" },
+  { id: "rings", label: "回纹" },
+];
+
+const PAPERS: { id: PaperKind; label: string }[] = [
+  { id: "plain", label: "素笺" },
+  { id: "xuan", label: "宣纸" },
+  { id: "gold", label: "洒金" },
+  { id: "night", label: "夜笺" },
+];
 
 const WEATHER: { code: number; emoji: string; label: string }[] = [
   { code: 0, emoji: "☀️", label: "晴" },
@@ -102,6 +135,10 @@ export default function WriteForm({
   const [burnSeconds, setBurnSeconds] = useState<number>(
     drafts[0]?.burnSeconds ? Number(drafts[0].burnSeconds) : 60
   );
+  const [sealColor, setSealColor] = useState<LetterSealTone>(sealToneOf(drafts[0]?.sealColor));
+  const [sealPattern, setSealPattern] = useState<SealPattern>(sealPatternOf(drafts[0]?.sealPattern));
+  const [paper, setPaper] = useState<PaperKind>(paperKindOf(drafts[0]?.paper));
+  const [vertical, setVertical] = useState<boolean>(drafts[0]?.vertical === "1");
   const [draftId, setDraftId] = useState("");
   const [replyTo, setReplyTo] = useState(reply?.id ?? "");
   const [saving, setSaving] = useState(false);
@@ -110,6 +147,7 @@ export default function WriteForm({
 
   const isCapsule = recipient === "__future__";
   const isPostcard = genre === "postcard";
+  const burnable = !!recipient && !isCapsule;
   const cost = isCapsule ? 0 : postageCost(postage);
   const weather: GeoWeather | null =
     weatherCode != null ? { city, temp: null, code: weatherCode, gust: null } : null;
@@ -155,6 +193,10 @@ export default function WriteForm({
     fd.set("topicId", topic?.id ?? "");
     fd.set("replyTo", replyTo);
     fd.set("burnSeconds", burnOn && recipient && !isCapsule ? String(burnSeconds) : "");
+    fd.set("sealColor", sealColor);
+    fd.set("sealPattern", sealPattern);
+    fd.set("paper", isPostcard ? "plain" : paper);
+    fd.set("vertical", isPostcard ? "0" : vertical ? "1" : "0");
     const res = await saveDraftAction({}, fd);
     setSaving(false);
     if ((res as any)?.draftId) setDraftId((res as any).draftId);
@@ -176,6 +218,10 @@ export default function WriteForm({
     setReplyTo(d.replyTo);
     setBurnOn(!!d.burnSeconds);
     if (d.burnSeconds) setBurnSeconds(Number(d.burnSeconds));
+    setSealColor(sealToneOf(d.sealColor));
+    setSealPattern(sealPatternOf(d.sealPattern));
+    setPaper(paperKindOf(d.paper));
+    setVertical(d.vertical === "1");
     setWeatherCode(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -260,6 +306,10 @@ export default function WriteForm({
           name="burnSeconds"
           value={burnOn && recipient && !isCapsule ? burnSeconds : ""}
         />
+        <input type="hidden" name="sealColor" value={sealColor} />
+        <input type="hidden" name="sealPattern" value={sealPattern} />
+        <input type="hidden" name="paper" value={isPostcard ? "plain" : paper} />
+        <input type="hidden" name="vertical" value={isPostcard ? "0" : vertical ? "1" : "0"} />
         {topic && <input type="hidden" name="topicId" value={topic.id} />}
 
         {topic && (
@@ -439,43 +489,110 @@ export default function WriteForm({
         </section>
 
         {/* 阅后即焚 */}
-        {recipient && !isCapsule && (
-          <section>
-            <h3 className="mb-2.5 text-sm font-semibold">阅后即焚</h3>
-            <div className="card flex flex-wrap items-center gap-2.5 p-3.5">
-              <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
-                <input
-                  type="checkbox"
-                  checked={burnOn}
-                  onChange={(e) => setBurnOn(e.target.checked)}
-                  className="h-4 w-4 accent-vermilion"
-                />
-                🔥 这封信只看一次
-              </label>
-              {burnOn && (
-                <div className="flex gap-1.5">
-                  {[30, 60, 180].map((s) => (
+        <section>
+          <h3 className="mb-2.5 text-sm font-semibold">阅后即焚</h3>
+          <div className={`card flex flex-wrap items-center gap-2.5 p-3.5 ${burnable ? "" : "opacity-60"}`}>
+            <label
+              className={`flex items-center gap-2 text-sm font-medium ${
+                burnable ? "cursor-pointer" : ""
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={burnOn}
+                disabled={!burnable}
+                onChange={(e) => setBurnOn(e.target.checked)}
+                className="h-4 w-4 accent-vermilion"
+              />
+              🔥 这封信只看一次
+            </label>
+            {burnable && burnOn && (
+              <div className="flex gap-1.5">
+                {[30, 60, 180].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setBurnSeconds(s)}
+                    className={`btn-ghost !px-3 !py-1 !text-xs ${
+                      burnSeconds === s ? "!border-vermilion !text-vermilion" : ""
+                    }`}
+                  >
+                    {s === 30 ? "30 秒" : s === 60 ? "1 分钟" : "3 分钟"}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {!burnable ? (
+            <p className="mt-2 text-xs text-ink-soft">
+              {isCapsule
+                ? "时光胶囊是写给未来的自己，不能阅后即焚。"
+                : "先在上方「寄给」选一位笔友，就能启用阅后即焚。"}
+            </p>
+          ) : burnOn ? (
+            <p className="mt-2 text-xs text-ink-soft">
+              {recipient} 首次拆封后开始倒计时，读完即焚；寄出后连你自己也无法再读。
+            </p>
+          ) : (
+            <p className="mt-2 text-xs text-ink-soft">
+              勾选后可选 30 秒/1 分钟/3 分钟：对方拆封即开始倒计时，读完即焚，寄出后连你自己也无法再读。
+            </p>
+          )}
+        </section>
+
+        {/* 火漆封缄 */}
+        <section>
+          <h3 className="mb-2.5 text-sm font-semibold">火漆封缄</h3>
+          <div className="card glass flex items-center gap-5 p-4">
+            <div className="shrink-0">
+              <Seal
+                char={pen[0] || "印"}
+                size={64}
+                tone={sealToneToRender(sealColor)}
+                pattern={sealPattern}
+              />
+            </div>
+            <div className="flex-1 space-y-3">
+              <div>
+                <span className="mb-1.5 block text-xs font-semibold text-ink-soft">蜡色</span>
+                <div className="flex items-center gap-2.5">
+                  {SEAL_COLORS.map((c) => (
                     <button
-                      key={s}
+                      key={c.id}
                       type="button"
-                      onClick={() => setBurnSeconds(s)}
-                      className={`btn-ghost !px-3 !py-1 !text-xs ${
-                        burnSeconds === s ? "!border-vermilion !text-vermilion" : ""
+                      onClick={() => setSealColor(c.id)}
+                      title={c.label}
+                      aria-label={c.label}
+                      className={`h-7 w-7 rounded-full transition ${
+                        sealColor === c.id
+                          ? "ring-2 ring-vermilion ring-offset-2 ring-offset-paper"
+                          : "opacity-80 hover:scale-110 hover:opacity-100"
+                      }`}
+                      style={{ background: c.swatch }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div>
+                <span className="mb-1.5 block text-xs font-semibold text-ink-soft">纹样</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {SEAL_PATTERNS.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setSealPattern(p.id)}
+                      className={`btn-ghost !px-3 !py-1.5 !text-xs ${
+                        sealPattern === p.id ? "!border-vermilion !text-vermilion" : ""
                       }`}
                     >
-                      {s === 30 ? "30 秒" : s === 60 ? "1 分钟" : "3 分钟"}
+                      {p.label}
                     </button>
                   ))}
                 </div>
-              )}
+              </div>
             </div>
-            {burnOn && (
-              <p className="mt-2 text-xs text-ink-soft">
-                {recipient} 首次拆封后开始倒计时，读完即焚；寄出后连你自己也无法再读。
-              </p>
-            )}
-          </section>
-        )}
+          </div>
+        </section>
 
         {/* 邮票 */}
         <section>
@@ -543,6 +660,57 @@ export default function WriteForm({
             </div>
           </div>
         </section>
+
+        {/* 信纸（明信片不适用） */}
+        {!isPostcard && (
+          <section>
+            <h3 className="mb-2.5 text-sm font-semibold">信纸</h3>
+            <div className="grid grid-cols-4 gap-2.5">
+              {PAPERS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setPaper(p.id)}
+                  className={`card overflow-hidden !rounded-2xl p-1.5 transition ${
+                    paper === p.id ? "!border-vermilion/60 shadow-md" : ""
+                  }`}
+                >
+                  <div
+                    className={`${paperClass(p.id)} flex h-16 items-center justify-center rounded-xl border text-[11px] ${
+                      p.id === "night"
+                        ? "border-white/10 text-[#ddd6c6]"
+                        : "border-black/5 text-ink-soft dark:border-white/10"
+                    }`}
+                  >
+                    {p.label}
+                  </div>
+                  <div className="mt-1.5 pb-0.5 text-xs font-medium">{p.label}</div>
+                </button>
+              ))}
+            </div>
+            <div className="mt-3.5 flex items-center justify-between gap-3">
+              <span className="text-sm">
+                竖排
+                <span className="ml-2 text-xs text-ink-soft">可配合设置页「繁体」开关，古意更足</span>
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={vertical}
+                onClick={() => setVertical(!vertical)}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ${
+                  vertical ? "bg-vermilion" : "bg-black/15 dark:bg-white/20"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-[left] duration-200 ${
+                    vertical ? "left-[22px]" : "left-0.5"
+                  }`}
+                />
+              </button>
+            </div>
+          </section>
+        )}
 
         <div className="flex gap-2">
           <button type="submit" className="btn flex-1 !py-3.5 !text-base" disabled={submitDisabled}>

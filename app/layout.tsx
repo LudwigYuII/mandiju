@@ -22,11 +22,23 @@ const prefsInit = `try{
   if(f&&f!=='default')document.documentElement.setAttribute('data-font',f);
 }catch(e){}`;
 
+const swInit = `try{
+  if('serviceWorker' in navigator){
+    window.addEventListener('load',function(){
+      navigator.serviceWorker.register('/sw.js').catch(function(){});
+    });
+  }
+}catch(e){}`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: prefsInit }} />
+        <script dangerouslySetInnerHTML={{ __html: swInit }} />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="慢递局" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <link rel="stylesheet" href="/fonts/noto-serif-sc/400.css" />
         <link rel="stylesheet" href="/fonts/noto-serif-sc/700.css" />
         <link rel="stylesheet" href="/fonts/noto-sans-sc/400.css" />
@@ -45,6 +57,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-x-5 gap-y-2 px-4 text-xs text-ink-soft">
             <Link href="/privacy" className="hover:text-ink">
               隐私政策
+            </Link>
+            <Link href="/download" className="hover:text-ink">
+              下载
             </Link>
             <Link href="/about" className="hover:text-ink">
               关于本站

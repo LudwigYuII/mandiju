@@ -7,3 +7,5 @@ public/uploads
 *.log
 *.tsbuildinfo
 deploy-*.txt
+android
+vapid-keys.txt

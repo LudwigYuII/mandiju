@@ -6,7 +6,14 @@ import { genreLabel, statusOf, fmtTime, postageLabel } from "@/lib/delivery";
 import { stampDefById, imgUrl } from "@/lib/assets";
 import { weatherEmoji, weatherLabel } from "@/lib/weather";
 import { friendshipBetween, canWriteTo } from "@/lib/friends";
-import Seal from "@/components/Seal";
+import Seal, {
+  sealToneOf,
+  sealPatternOf,
+  sealToneToRender,
+  type LetterSealTone,
+  type SealPattern,
+} from "@/components/Seal";
+import { paperKindOf, paperClass, type PaperKind } from "@/components/paper";
 import Stamp from "@/components/Stamp";
 import Avatar from "@/components/Avatar";
 import Postmark from "@/components/Postmark";
@@ -69,6 +76,12 @@ export default async function LetterPage({ params }: { params: Promise<{ id: str
     });
     recipientPen = String(rr.rows[0]?.pen_name ?? "");
   }
+
+  // 信件自己的火漆与信纸（旧信无此字段时回落默认）
+  const sealColor: LetterSealTone = sealToneOf(l.seal_color);
+  const sealPattern: SealPattern = sealPatternOf(l.seal_pattern);
+  const paperKind: PaperKind = paperKindOf(l.paper);
+  const isVertical = Number(l.vertical) === 1;
 
   // ---------- 阅后即焚：独立的页面流 ----------
   if (isBurn) {
@@ -152,6 +165,10 @@ export default async function LetterPage({ params }: { params: Promise<{ id: str
               meta={{
                 pen: String(author.pen_name),
                 seal: String(author.seal_text || author.pen_name[0]),
+                sealColor,
+                sealPattern,
+                paper: paperKind,
+                vertical: isVertical ? 1 : 0,
                 stampFile: stamp?.file ?? null,
                 city: l.city ? String(l.city) : "",
                 deliverAt: Number(l.deliver_at),
@@ -201,8 +218,13 @@ export default async function LetterPage({ params }: { params: Promise<{ id: str
       </Link>
 
       <Reveal>
-        <Envelope letterId={id} seal={String(author.seal_text || author.pen_name[0])}>
-        <article className="card glass grain p-6">
+        <Envelope
+          letterId={id}
+          seal={String(author.seal_text || author.pen_name[0])}
+          sealColor={sealColor}
+          sealPattern={sealPattern}
+        >
+        <article className={`card glass grain ${paperClass(paperKind)} p-6`}>
         {/* 抬头 */}
         <div className="flex flex-wrap items-start justify-between gap-3">
           <Link href={`/study/${encodeURIComponent(String(author.pen_name))}`} className="flex items-center gap-2.5">
@@ -253,12 +275,20 @@ export default async function LetterPage({ params }: { params: Promise<{ id: str
 
         {/* 正文 */}
         <h1 className="mt-5 text-2xl font-semibold tracking-tight">{String(l.title)}</h1>
-        <div className={`mt-3 ${l.genre === "poem" ? "poem" : "prose-letter"} text-[17px]`}>
+        <div
+          className={`mt-3 ${l.genre === "poem" ? "poem" : "prose-letter"} text-[17px] ${
+            isVertical ? "writing-vertical" : ""
+          }`}
+        >
           {String(l.body)}
         </div>
 
         {/* 落款 */}
-        <div className="mt-6 flex items-end justify-between border-t border-black/5 pt-4 dark:border-white/10">
+        <div
+          className={`mt-6 flex items-end justify-between border-t pt-4 ${
+            paperKind === "night" ? "border-white/15" : "border-black/5 dark:border-white/10"
+          }`}
+        >
           <div className="text-sm text-ink-soft">
             {weatherEmoji(Number(l.weather ?? -1) === -1 ? null : Number(l.weather))}{" "}
             {l.city || (l.weather != null ? weatherLabel(Number(l.weather)) : "未盖章")}
@@ -267,7 +297,12 @@ export default async function LetterPage({ params }: { params: Promise<{ id: str
           </div>
           <div className="flex items-end gap-2">
             {stamp && <Stamp file={stamp.file} size={84} />}
-            <Seal char={String(author.seal_text || author.pen_name[0])} size={44} />
+            <Seal
+              char={String(author.seal_text || author.pen_name[0])}
+              size={44}
+              tone={sealToneToRender(sealColor)}
+              pattern={sealPattern}
+            />
           </div>
         </div>
         </article>

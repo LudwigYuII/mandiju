@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { db, waitDb } from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { gateOnboard } from "@/lib/onboard";
 import { availableStamps } from "@/lib/stamps";
 import { getTopicById, monthKey } from "@/lib/topics";
 import { getPenpals } from "@/lib/friends";
@@ -14,7 +14,7 @@ export default async function WritePage({
   searchParams: Promise<{ topic?: string; reply?: string; to?: string }>;
 }) {
   await waitDb();
-  const sess = await getSession();
+  const sess = await gateOnboard();
   if (!sess) redirect("/login");
 
   const { topic: topicId, reply: replyId, to } = await searchParams;
@@ -85,6 +85,10 @@ export default async function WritePage({
           topicId: String(d.topic_id ?? ""),
           replyTo: String(d.reply_to ?? ""),
           burnSeconds: String(d.burn_seconds ?? ""),
+          sealColor: String(d.seal_color ?? ""),
+          sealPattern: String(d.seal_pattern ?? ""),
+          paper: String(d.paper ?? ""),
+          vertical: String(d.vertical ?? ""),
           updatedAt: Number(d.updated_at),
         }))}
       />
