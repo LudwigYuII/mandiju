@@ -11,6 +11,7 @@ import { monthKey, monthStamp, currentHost, getCurrentTopic, getTopicById } from
 import { todayFirstDay } from "./calendar";
 import { notify } from "./notify";
 import { sendMail } from "./mail";
+import { canWriteTo } from "./friends";
 import type { WeatherInfo } from "./weather";
 
 export type ActionState = { error?: string; ok?: boolean };
@@ -90,6 +91,9 @@ export async function createLetterAction(_prev: ActionState, formData: FormData)
   const sess = await getSession();
   if (!sess) redirect("/login");
 
+  const meBan = await db.execute({ sql: "SELECT banned FROM users WHERE id=?", args: [sess.uid] });
+  if (Number((meBan.rows[0] as any)?.banned) === 1) return { error: "你的账号已被暂停寄信" };
+
   const recipientPen = needText(formData.get("recipient"));
   const genre = needText(formData.get("genre"));
   const title = needText(formData.get("title"));
@@ -147,10 +151,18 @@ export async function createLetterAction(_prev: ActionState, formData: FormData)
   if (isCapsule) {
     recipientId = sess.uid; // 收件人是未来的自己
   } else if (recipientPen) {
-    const r = await db.execute({ sql: "SELECT id FROM users WHERE pen_name=?", args: [recipientPen] });
+    const r = await db.execute({
+      sql: "SELECT id, banned FROM users WHERE pen_name=?",
+      args: [recipientPen],
+    });
     if (r.rows.length === 0) return { error: "收件人不存在" };
     recipientId = String((r.rows[0] as any).id);
     if (recipientId === sess.uid) return { error: "信不能寄给自己" };
+    if (Number((r.rows[0] as any).banned) === 1) return { error: "对方暂时无法收信" };
+    // 隐私守则：只有笔友（或曾来信者/站长）之间才能互寄
+    if (!(await canWriteTo(sess.uid, recipientId))) {
+      return { error: "你们还不是笔友，先去「笔友」页加好友吧" };
+    }
   }
 
   // 回信：校验原信存在
@@ -568,4 +580,183 @@ export async function addNoteAction(_prev: ActionState, formData: FormData): Pro
     )`);
   revalidatePath("/");
   return { ok: true };
+}
+
+// ---------- 好友系统 ----------
+async function requireUser(): Promise<{ uid: string; pen: string }> {
+  const sess = await getSession();
+  if (!sess) redirect("/login");
+  return sess;
+}
+
+export async function sendFriendRequestAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await waitDb();
+  const sess = await requireUser();
+  const targetId = needText(formData.get("targetId"));
+  if (!targetId) return { error: "没有找到这位笔友" };
+  if (targetId === sess.uid) return { error: "不能加自己为好友" };
+
+  const t = await db.execute({
+    sql: "SELECT id, pen_name, banned FROM users WHERE id=?",
+    args: [targetId],
+  });
+  if (t.rows.length === 0) return { error: "这位笔友不存在" };
+  if (Number((t.rows[0] as any).banned) === 1) return { error: "这位笔友暂时无法添加" };
+
+  const existing = await db.execute({
+    sql: "SELECT status, requester_id FROM friends WHERE (requester_id=? AND addressee_id=?) OR (requester_id=? AND addressee_id=?) LIMIT 1",
+    args: [sess.uid, targetId, targetId, sess.uid],
+  });
+  const row = existing.rows[0] as any;
+  if (row) {
+    if (String(row.status) === "accepted") return { error: "你们已经是笔友了" };
+    if (String(row.requester_id) === sess.uid) return { error: "申请已寄出，等对方回音" };
+    return { error: "对方已经向你发过申请，去「笔友」页接受吧" };
+  }
+
+  await db.execute({
+    sql: "INSERT INTO friends(requester_id, addressee_id, status, created_at) VALUES(?,?,'pending',?)",
+    args: [sess.uid, targetId, Date.now()],
+  });
+  await notify(
+    targetId,
+    "friend",
+    `${sess.pen} 想和你成为笔友`,
+    "/friends"
+  );
+  revalidatePath("/friends");
+  return { ok: true };
+}
+
+export async function acceptFriendAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await waitDb();
+  const sess = await requireUser();
+  const requesterId = needText(formData.get("requesterId"));
+  const r = await db.execute({
+    sql: "SELECT requester_id FROM friends WHERE requester_id=? AND addressee_id=? AND status='pending'",
+    args: [requesterId, sess.uid],
+  });
+  if (r.rows.length === 0) return { error: "申请不存在或已处理" };
+  await db.execute({
+    sql: "UPDATE friends SET status='accepted', accepted_at=? WHERE requester_id=? AND addressee_id=?",
+    args: [Date.now(), requesterId, sess.uid],
+  });
+  await notify(requesterId, "friend", `${sess.pen} 接受了你的笔友申请，可以互相写信了`, "/friends");
+  revalidatePath("/friends");
+  revalidatePath("/write");
+  return { ok: true };
+}
+
+export async function declineFriendAction(formData: FormData): Promise<void> {
+  await waitDb();
+  const sess = await requireUser();
+  const requesterId = needText(formData.get("requesterId"));
+  await db.execute({
+    sql: "DELETE FROM friends WHERE requester_id=? AND addressee_id=? AND status='pending'",
+    args: [requesterId, sess.uid],
+  });
+  revalidatePath("/friends");
+}
+
+export async function removeFriendAction(formData: FormData): Promise<void> {
+  await waitDb();
+  const sess = await requireUser();
+  const otherId = needText(formData.get("otherId"));
+  await db.execute({
+    sql: "DELETE FROM friends WHERE (requester_id=? AND addressee_id=?) OR (requester_id=? AND addressee_id=?)",
+    args: [sess.uid, otherId, otherId, sess.uid],
+  });
+  revalidatePath("/friends");
+  revalidatePath("/write");
+}
+
+// ---------- 生日 ----------
+export async function updateBirthdayAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await waitDb();
+  const sess = await requireUser();
+  const birthday = needText(formData.get("birthday"));
+  if (birthday && !/^\d{4}-\d{2}-\d{2}$/.test(birthday)) return { error: "生日格式不正确" };
+  await db.execute({
+    sql: "UPDATE users SET birthday=? WHERE id=?",
+    args: [birthday || null, sess.uid],
+  });
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+// ---------- 站长工具 ----------
+async function requireAdmin(): Promise<{ uid: string; pen: string }> {
+  const sess = await requireUser();
+  const me = await db.execute({ sql: "SELECT role FROM users WHERE id=?", args: [sess.uid] });
+  if (String((me.rows[0] as any)?.role) !== "admin") redirect("/");
+  return sess;
+}
+
+export async function adminDeleteLetterAction(formData: FormData): Promise<void> {
+  await waitDb();
+  await requireAdmin();
+  const letterId = needText(formData.get("letterId"));
+  if (!letterId) return;
+  await db.execute({ sql: "DELETE FROM likes WHERE letter_id=?", args: [letterId] });
+  await db.execute({ sql: "DELETE FROM replies WHERE letter_id=?", args: [letterId] });
+  await db.execute({ sql: "DELETE FROM topic_letters WHERE letter_id=?", args: [letterId] });
+  await db.execute({ sql: "DELETE FROM letters WHERE id=?", args: [letterId] });
+  revalidatePath("/admin");
+  revalidatePath("/");
+}
+
+export async function adminToggleBanAction(formData: FormData): Promise<void> {
+  await waitDb();
+  await requireAdmin();
+  const userId = needText(formData.get("userId"));
+  const u = await db.execute({ sql: "SELECT banned, role FROM users WHERE id=?", args: [userId] });
+  if (u.rows.length === 0) return;
+  const row = u.rows[0] as any;
+  if (String(row.role) === "admin") return; // 站长不可封禁
+  const next = Number(row.banned) === 1 ? 0 : 1;
+  await db.execute({ sql: "UPDATE users SET banned=? WHERE id=?", args: [next, userId] });
+  revalidatePath("/admin");
+}
+
+export async function adminToggleRoleAction(formData: FormData): Promise<void> {
+  await waitDb();
+  await requireAdmin();
+  const userId = needText(formData.get("userId"));
+  const u = await db.execute({ sql: "SELECT role, banned FROM users WHERE id=?", args: [userId] });
+  if (u.rows.length === 0) return;
+  const row = u.rows[0] as any;
+  if (Number(row.banned) === 1) return;
+  const next = String(row.role) === "admin" ? "member" : "admin";
+  if (next === "member") {
+    // 防误操作：至少保留一位站长
+    const admins = await db.execute({ sql: "SELECT COUNT(*) AS n FROM users WHERE role='admin'" });
+    if (Number((admins.rows[0] as any)?.n ?? 0) <= 1) return;
+  }
+  await db.execute({ sql: "UPDATE users SET role=? WHERE id=?", args: [next, userId] });
+  revalidatePath("/admin");
+}
+
+export async function createAnnouncementAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await waitDb();
+  const sess = await requireAdmin();
+  const body = needText(formData.get("body"));
+  const pinned = needText(formData.get("pinned")) === "1" ? 1 : 0;
+  if (!body) return { error: "公告内容不能为空" };
+  if (body.length > 200) return { error: "公告最多 200 字" };
+  await db.execute({
+    sql: "INSERT INTO announcements(id, body, pinned, created_by, created_at) VALUES(?,?,?,?,?)",
+    args: [crypto.randomUUID(), body, pinned, sess.uid, Date.now()],
+  });
+  revalidatePath("/admin");
+  revalidatePath("/");
+  return { ok: true };
+}
+
+export async function deleteAnnouncementAction(formData: FormData): Promise<void> {
+  await waitDb();
+  await requireAdmin();
+  const id = needText(formData.get("id"));
+  await db.execute({ sql: "DELETE FROM announcements WHERE id=?", args: [id] });
+  revalidatePath("/admin");
+  revalidatePath("/");
 }

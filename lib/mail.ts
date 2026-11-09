@@ -39,6 +39,14 @@ export async function sweepDelivered() {
     args: [Date.now()],
   });
   for (const r of rows.rows as any[]) {
+    // 幂等保护：cron 与首页懒扫描可能并发，已通知过就跳过
+    const link = `/letter/${String(r.id)}`;
+    const dup = await db.execute({
+      sql: "SELECT 1 FROM notifications WHERE user_id=? AND type='letter_in' AND link=? LIMIT 1",
+      args: [String(r.recipient_id), link],
+    });
+    if (dup.rows.length > 0) continue;
+
     const email = String(r.recip_email ?? "");
     const isCapsule = String(r.recipient_id) === String(r.author_id);
     const subject = isCapsule ? "慢递局 · 你的时光胶囊到期了" : "慢递局 · 你收到一封信";
@@ -50,7 +58,7 @@ export async function sweepDelivered() {
       String(r.recipient_id),
       "letter_in",
       isCapsule ? `你的时光胶囊《${String(r.title)}》已解锁` : `你收到一封信：《${String(r.title)}》`,
-      `/letter/${String(r.id)}`
+      link
     );
   }
   if (rows.rows.length > 0) {

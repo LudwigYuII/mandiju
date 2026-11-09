@@ -11,6 +11,7 @@ import GenerateInvites from "@/components/GenerateInvites";
 import SealEditor from "@/components/SealEditor";
 import ProfileAvatarEditor from "@/components/ProfileAvatarEditor";
 import AppearancePanel from "@/components/AppearancePanel";
+import BirthdayEditor from "@/components/BirthdayEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -147,6 +148,30 @@ export default async function SettingsPage() {
         <p className="mt-1 text-xs text-ink-soft">一至两个汉字，盖在你寄出的每封信上。</p>
         <SealEditor current={String(me.seal_text || me.pen_name[0])} />
       </section>
+
+      <section className="card glass p-5">
+        <h2 className="text-sm font-semibold tracking-widest">生辰</h2>
+        <p className="mt-1 text-xs text-ink-soft">
+          生日当天局里会送上问候，当天寄信还能盖「生辰」纪念票。
+        </p>
+        <div className="mt-4">
+          <BirthdayEditor current={me.birthday ? String(me.birthday) : null} />
+        </div>
+      </section>
+
+      {isAdmin && (
+        <section className="card glass border-vermilion/30 p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold tracking-widest text-vermilion">邮务总办</h2>
+              <p className="mt-1 text-xs text-ink-soft">看板、局友管理、公告与信件管理。</p>
+            </div>
+            <Link href="/admin" className="btn !px-5 !py-2 !text-sm">
+              进入后台 →
+            </Link>
+          </div>
+        </section>
+      )}
 
       <section className="card glass p-5">
         <h2 className="text-sm font-semibold tracking-widest">

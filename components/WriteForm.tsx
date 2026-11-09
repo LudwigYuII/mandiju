@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useRef, useState, useTransition } from "react";
 import {
   createLetterAction,
@@ -13,7 +14,7 @@ import Stamp from "./Stamp";
 import Postmark from "./Postmark";
 import FutureDatePicker from "./FutureDatePicker";
 
-type PenPal = { pen: string; avatarId: string; bgId: string };
+type PenPal = { pen: string; avatarId: string; bgId: string; via?: "friend" | "replied" };
 type StampOpt = { id: string; name: string; file: string; seasonal?: string };
 type GeoWeather = { city: string; temp: number | null; code: number | null; gust: number | null };
 type Draft = {
@@ -67,6 +68,7 @@ export default function WriteForm({
   coins,
   topic,
   reply,
+  to,
   drafts,
 }: {
   pen: string;
@@ -75,6 +77,7 @@ export default function WriteForm({
   coins: number;
   topic?: { id: string; title: string } | null;
   reply?: { id: string; title: string; authorPen: string } | null;
+  to?: string;
   drafts: Draft[];
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(createLetterAction, {});
@@ -83,7 +86,7 @@ export default function WriteForm({
   const [postage, setPostage] = useState<string>(drafts[0]?.postage || "surface");
   const [stampId, setStampId] = useState<string>(drafts[0]?.stampId || stamps[0]?.id || "");
   const [recipient, setRecipient] = useState<string>(
-    reply ? reply.authorPen : drafts[0]?.recipient ?? ""
+    reply ? reply.authorPen : (to || (drafts[0]?.recipient ?? ""))
   );
   const [title, setTitle] = useState(drafts[0]?.title ?? (reply ? `回：《${reply.title}》` : ""));
   const [body, setBody] = useState(drafts[0]?.body ?? "");
@@ -273,7 +276,7 @@ export default function WriteForm({
             >
               🌐 所有人
             </button>
-            {penpals.slice(0, 8).map((p) => (
+            {penpals.map((p) => (
               <button
                 key={p.pen}
                 type="button"
@@ -281,6 +284,11 @@ export default function WriteForm({
                 className={`btn-ghost ${recipient === p.pen ? "!border-vermilion !text-vermilion" : ""}`}
               >
                 ✉️ {p.pen}
+                {p.via === "replied" && (
+                  <span className="ml-1 rounded-full bg-postblue/15 px-1.5 py-0.5 text-[10px] text-postblue">
+                    曾来信
+                  </span>
+                )}
               </button>
             ))}
             <button
@@ -290,8 +298,16 @@ export default function WriteForm({
             >
               ⏳ 未来的自己
             </button>
+            <Link href="/friends" className="btn-ghost !border-dashed">
+              ➕ 找笔友
+            </Link>
           </div>
           {recipient && !isCapsule && <p className="mt-2 text-xs text-ink-soft">这封信只有你俩能看见</p>}
+          {penpals.length === 0 && (
+            <p className="mt-2 text-xs text-ink-soft">
+              还没有笔友？去「笔友」页找到朋友、互相加为笔友后，就能寄私人信了。
+            </p>
+          )}
         </section>
 
         {/* 体裁 */}

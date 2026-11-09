@@ -1,6 +1,6 @@
 import { db } from "./db";
 
-export type NotifyType = "letter_in" | "reply" | "like" | "stamp";
+export type NotifyType = "letter_in" | "reply" | "like" | "stamp" | "friend" | "birthday" | "festival" | "announce";
 
 export async function notify(userId: string, type: NotifyType, body: string, link?: string) {
   await db.execute({

@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { genreLabel, statusOf, fmtTime, postageLabel } from "@/lib/delivery";
 import { stampDefById, imgUrl } from "@/lib/assets";
 import { weatherEmoji, weatherLabel } from "@/lib/weather";
+import { friendshipBetween, canWriteTo } from "@/lib/friends";
 import Seal from "@/components/Seal";
 import Stamp from "@/components/Stamp";
 import Avatar from "@/components/Avatar";
@@ -12,6 +13,8 @@ import Postmark from "@/components/Postmark";
 import LikeButton from "@/components/LikeButton";
 import ReplyForm from "@/components/ReplyForm";
 import Reveal from "@/components/Reveal";
+import Envelope from "@/components/Envelope";
+import FriendButton from "@/components/FriendButton";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +70,16 @@ export default async function LetterPage({ params }: { params: Promise<{ id: str
     if (o.rows.length > 0) original = { id: String((o.rows[0] as any).id), title: String((o.rows[0] as any).title) };
   }
 
+  // 笔友关系：决定显示「回信」还是「加为笔友」
+  const authorId = String(l.author_id);
+  let canReply = false;
+  let rel: "none" | "pending_out" | "pending_in" | "friends" = "none";
+  let authorBanned = Number(author?.banned ?? 0) === 1;
+  if (sess && sess.uid !== authorId && !authorBanned) {
+    canReply = await canWriteTo(sess.uid, authorId);
+    rel = await friendshipBetween(sess.uid, authorId);
+  }
+
   return (
     <div className="space-y-4">
       <Link href="/" className="text-sm text-ink-soft">
@@ -74,6 +87,7 @@ export default async function LetterPage({ params }: { params: Promise<{ id: str
       </Link>
 
       <Reveal>
+        <Envelope letterId={id} seal={String(author.seal_text || author.pen_name[0])}>
         <article className="card glass grain p-6">
         {/* 抬头 */}
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -117,6 +131,8 @@ export default async function LetterPage({ params }: { params: Promise<{ id: str
           <img
             src={imgUrl(String(l.image))}
             alt="明信片"
+            loading="lazy"
+            decoding="async"
             className="mt-5 w-full rounded-2xl object-cover"
           />
         )}
@@ -141,18 +157,20 @@ export default async function LetterPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
         </article>
+        </Envelope>
       </Reveal>
 
       {/* 点赞 */}
-      <div className="flex items-center justify-between px-1">
+      <div className="flex items-center justify-between gap-3 px-1">
         <LikeButton letterId={id} liked={liked} likes={likes.rows.length} />
-        {sess && sess.uid !== String(l.author_id) && (
-          <Link
-            href={`/write?reply=${id}`}
-            className="btn !px-4 !py-2 !text-sm"
-          >
-            ↩️ 回信
-          </Link>
+        {sess && sess.uid !== authorId && !authorBanned && (
+          canReply ? (
+            <Link href={`/write?reply=${id}`} className="btn !px-4 !py-2 !text-sm">
+              ↩️ 回信
+            </Link>
+          ) : (
+            <FriendButton targetId={authorId} pen={String(author.pen_name)} rel={rel} />
+          )
         )}
       </div>
 

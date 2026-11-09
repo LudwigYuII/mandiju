@@ -3,6 +3,7 @@ import { db, waitDb } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { availableStamps } from "@/lib/stamps";
 import { getTopicById, monthKey } from "@/lib/topics";
+import { getPenpals } from "@/lib/friends";
 import WriteForm from "@/components/WriteForm";
 
 export const dynamic = "force-dynamic";
@@ -10,13 +11,13 @@ export const dynamic = "force-dynamic";
 export default async function WritePage({
   searchParams,
 }: {
-  searchParams: Promise<{ topic?: string; reply?: string }>;
+  searchParams: Promise<{ topic?: string; reply?: string; to?: string }>;
 }) {
   await waitDb();
   const sess = await getSession();
   if (!sess) redirect("/login");
 
-  const { topic: topicId, reply: replyId } = await searchParams;
+  const { topic: topicId, reply: replyId, to } = await searchParams;
   let topic: { id: string; title: string } | null = null;
   if (topicId) {
     const t = await getTopicById(topicId);
@@ -37,40 +38,38 @@ export default async function WritePage({
     }
   }
 
-  const me = (
-    await db.execute({ sql: "SELECT * FROM users WHERE id=?", args: [sess.uid] })
-  ).rows[0] as any;
-  const penpals = (
-    await db.execute({
-      sql: "SELECT pen_name, avatar_id, bg_id FROM users WHERE id != ? ORDER BY created_at ASC",
+  const [me, penpals, stamps, drafts] = await Promise.all([
+    db.execute({ sql: "SELECT * FROM users WHERE id=?", args: [sess.uid] }),
+    getPenpals(sess.uid),
+    availableStamps(sess.uid),
+    db.execute({
+      sql: "SELECT * FROM drafts WHERE user_id=? ORDER BY updated_at DESC LIMIT 20",
       args: [sess.uid],
-    })
-  ).rows.map((r: any) => ({
-    pen: String(r.pen_name),
-    avatarId: String(r.avatar_id),
-    bgId: String(r.bg_id),
-  }));
-  const stamps = await availableStamps(sess.uid);
-  const drafts = await db.execute({
-    sql: "SELECT * FROM drafts WHERE user_id=? ORDER BY updated_at DESC LIMIT 20",
-    args: [sess.uid],
-  });
+    }),
+  ]);
+  const meRow = me.rows[0] as any;
 
   return (
     <div className="space-y-6">
       <h1 className="rise text-3xl font-semibold tracking-tight">写信</h1>
       <WriteForm
-        pen={String(me.pen_name)}
-        penpals={penpals}
+        pen={String(meRow.pen_name)}
+        penpals={penpals.map((p) => ({
+          pen: p.pen,
+          avatarId: p.avatarId,
+          bgId: p.bgId,
+          via: p.via,
+        }))}
         stamps={stamps.map((s: any) => ({
           id: s.id,
           name: s.name,
           file: s.file,
           seasonal: s.seasonal ?? "",
         }))}
-        coins={Number(me.coins ?? 0)}
+        coins={Number(meRow.coins ?? 0)}
         topic={topic}
         reply={reply}
+        to={to ?? ""}
         drafts={drafts.rows.map((d: any) => ({
           id: String(d.id),
           genre: String(d.genre),

@@ -1,14 +1,18 @@
 import { notFound } from "next/navigation";
 import { db, waitDb } from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import { friendshipBetween } from "@/lib/friends";
 import Seal from "@/components/Seal";
+import FriendButton from "@/components/FriendButton";
 import LetterCard, { type LetterRow } from "@/components/LetterCard";
-import { avatarFile, bgFile } from "@/lib/assets";
+import { avatarFile, bgFile, imgUrl } from "@/lib/assets";
 
 export const dynamic = "force-dynamic";
 
 export default async function StudyPage({ params }: { params: Promise<{ pen: string }> }) {
   await waitDb();
   const { pen } = await params;
+  const sess = await getSession();
 
   const u = (
     await db.execute({ sql: "SELECT * FROM users WHERE pen_name=?", args: [decodeURIComponent(pen)] })
@@ -26,6 +30,12 @@ export default async function StudyPage({ params }: { params: Promise<{ pen: str
     args: [String(u.id), Date.now()],
   });
 
+  const isMe = !!sess && String(u.id) === sess.uid;
+  const rel = !isMe && sess ? await friendshipBetween(sess.uid, String(u.id)) : "none";
+  const avatarSrc = String(u.avatar_id).startsWith("upload:")
+    ? imgUrl(String(u.avatar_id).slice(7))
+    : avatarFile(String(u.avatar_id));
+
   return (
     <div className="space-y-5">
       {/* 题签 */}
@@ -36,14 +46,17 @@ export default async function StudyPage({ params }: { params: Promise<{ pen: str
         <div className="flex items-end justify-between bg-black/25 p-5 pt-16 backdrop-blur-[2px]">
           <div className="flex items-end gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={avatarFile(String(u.avatar_id))} alt="" className="h-24" />
+            <img src={avatarSrc} alt="" loading="lazy" decoding="async" className="h-24" />
             <div className="pb-1 text-white">
               <div className="text-lg font-bold drop-shadow">{String(u.pen_name)} 的书房</div>
               <div className="text-xs opacity-90">寄出 {Number(u.letters_sent)} 封信</div>
             </div>
           </div>
-          <div className="pb-1">
+          <div className="flex flex-col items-end gap-2 pb-1">
             <Seal char={String(u.seal_text || u.pen_name[0])} size={48} tone="vermilion" />
+            {sess && !isMe && (
+              <FriendButton targetId={String(u.id)} pen={String(u.pen_name)} rel={rel} />
+            )}
           </div>
         </div>
       </div>

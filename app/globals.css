@@ -255,3 +255,95 @@ html[data-font="fang"] {
 .stamp-flash {
   animation: stampFlash 1.05s ease-out both;
 }
+
+/* 信封拆封动画 */
+.envelope-flap {
+  transition: transform 0.55s cubic-bezier(0.6, 0.05, 0.3, 1.2);
+}
+
+.envelope-wrap.opening .envelope-flap {
+  transform: rotateX(178deg);
+  opacity: 0;
+}
+
+.envelope-wrap.opening .envelope-seal {
+  animation: sealLift 0.55s ease-out both;
+}
+
+@keyframes sealLift {
+  0% {
+    transform: none;
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-26px) rotate(-6deg);
+    opacity: 0;
+  }
+}
+
+.envelope-wrap.opening .envelope-shell {
+  animation: envelopeAway 0.75s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes envelopeAway {
+  0% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-18px) scale(0.97);
+  }
+}
+
+.letter-reveal {
+  animation: letterReveal 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes letterReveal {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 骨架屏 */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--paper2) 60%, transparent);
+  border-radius: 26px;
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* 桌面宽屏 */
+.page-width {
+  max-width: 42rem;
+  margin-inline: auto;
+  width: 100%;
+}
+.page-width.page-wide {
+  max-width: 72rem;
+}
+@media (min-width: 1280px) {
+  .xl-aside {
+    position: sticky;
+    top: 5.5rem;
+  }
+}

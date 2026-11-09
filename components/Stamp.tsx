@@ -14,6 +14,8 @@ export default function Stamp({
       alt=""
       width={size}
       height={size}
+      loading="lazy"
+      decoding="async"
       style={{ filter: grayscale ? "grayscale(1) opacity(0.45)" : undefined }}
       className="rounded-[3px] drop-shadow-sm"
     />

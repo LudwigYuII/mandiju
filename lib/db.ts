@@ -166,9 +166,28 @@ async function init() {
       used INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL
     )`,
+    `CREATE TABLE IF NOT EXISTS friends (
+      requester_id TEXT NOT NULL,
+      addressee_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at INTEGER NOT NULL,
+      accepted_at INTEGER,
+      PRIMARY KEY (requester_id, addressee_id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS announcements (
+      id TEXT PRIMARY KEY,
+      body TEXT NOT NULL,
+      pinned INTEGER NOT NULL DEFAULT 0,
+      created_by TEXT,
+      created_at INTEGER NOT NULL
+    )`,
     `CREATE INDEX IF NOT EXISTS idx_letters_deliver ON letters(deliver_at)`,
     `CREATE INDEX IF NOT EXISTS idx_letters_author ON letters(author_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_letters_recipient ON letters(recipient_id)`,
     `CREATE INDEX IF NOT EXISTS idx_replies_letter ON replies(letter_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, read)`,
+    `CREATE INDEX IF NOT EXISTS idx_drafts_user ON drafts(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_friends_addressee ON friends(addressee_id, status)`,
   ];
   for (const s of stmts) {
     await db.execute(s);
@@ -178,6 +197,7 @@ async function init() {
   await ensureColumn("users", "seal_text", "seal_text TEXT NOT NULL DEFAULT ''");
   await ensureColumn("users", "coins", "coins INTEGER NOT NULL DEFAULT 500");
   await ensureColumn("users", "last_coin_at", "last_coin_at INTEGER");
+  await ensureColumn("users", "banned", "banned INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("letters", "cost", "cost INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("letters", "image", "image TEXT");
   await ensureColumn("letters", "first_day", "first_day INTEGER NOT NULL DEFAULT 0");

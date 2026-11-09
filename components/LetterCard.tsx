@@ -60,6 +60,8 @@ export default function LetterCard({ l, ghost = false }: { l: LetterRow; ghost?:
           <img
             src={imgUrl(String(l.image))}
             alt=""
+            loading="lazy"
+            decoding="async"
             className="mb-3 h-28 w-full rounded-xl object-cover"
           />
         )}

@@ -17,6 +17,9 @@ export default function Header() {
           <Link href="/topics" className="hover:text-ink">
             同题
           </Link>
+          <Link href="/friends" className="hover:text-ink">
+            笔友
+          </Link>
           <Link href="/stamps" className="hover:text-ink">
             邮票册
           </Link>

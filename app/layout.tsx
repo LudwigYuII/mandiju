@@ -38,7 +38,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen">
         <Header />
         <BetaBanner />
-        <main className="mx-auto max-w-2xl px-4 pb-16 pt-6">{children}</main>
+        <main className="mx-auto w-full px-4 pb-16 pt-6">
+          <div className="page-width">{children}</div>
+        </main>
         <footer className="border-t border-black/5 pb-8 pt-6 dark:border-white/10">
           <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-x-5 gap-y-2 px-4 text-xs text-ink-soft">
             <Link href="/privacy" className="hover:text-ink">

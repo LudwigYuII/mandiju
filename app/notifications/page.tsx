@@ -12,6 +12,10 @@ const ICONS: Record<string, string> = {
   reply: "💬",
   like: "❤️",
   stamp: "🎫",
+  friend: "🤝",
+  birthday: "🎂",
+  festival: "🏮",
+  announce: "📢",
 };
 
 export default async function NotificationsPage() {

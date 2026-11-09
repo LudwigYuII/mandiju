@@ -20,6 +20,8 @@ export default function Avatar({
       <img
         src={imgUrl(String(avatarId).slice(7))}
         alt={pen}
+        loading="lazy"
+        decoding="async"
         className={`shrink-0 rounded-full object-cover ${className}`}
         style={{ width: size, height: size }}
       />

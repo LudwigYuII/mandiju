@@ -4,3 +4,5 @@ data/*.db
 .env
 public/uploads
 .vercel
+*.log
+*.tsbuildinfo

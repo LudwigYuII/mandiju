@@ -49,6 +49,19 @@ export function todayFirstDay(d: Date = new Date()): FirstDayEvent | null {
   return null;
 }
 
+export type UpcomingDay = { name: string; kind: "term" | "festival"; days: number };
+
+/** 未来几天内的发行首日（用于首页提醒） */
+export function upcomingFirstDays(withinDays: number = 7, from: Date = new Date()): UpcomingDay[] {
+  const out: UpcomingDay[] = [];
+  for (let off = 0; off <= withinDays; off++) {
+    const d = new Date(from.getFullYear(), from.getMonth(), from.getDate() + off);
+    const fd = todayFirstDay(d);
+    if (fd) out.push({ name: fd.name, kind: fd.kind, days: off });
+  }
+  return out;
+}
+
 /** 建站日（周年纪念票 B08） */
 export const SITE_BIRTHDAY: [number, number] = [11, 7];
 
