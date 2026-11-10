@@ -284,18 +284,25 @@ jobs:
         run: pnpm exec electron-builder --win
 
       # 注意：electron-builder 25 会忽略 nsis/portable 里的 artifactName 模板，
-      # 实际产物是 dist\mandiju-setup.exe / dist\mandiju-portable.exe（不带版本号）。
-      # 这里把产物统一改名为带版本号的形式，避免上传/发布用通配符匹配不到。
-      - name: Rename installers with version
+      # 实际产物是 dist\mandiju-setup.exe / dist\mandiju-portable.exe。
+      # 这里统一改名为**不带版本号**的稳定名——下载页用 releases/latest/download/<固定名>
+      # 直链，文件名一变就会 404，所以版本号只出现在 Release 标题里，不进文件名。
+      - name: Normalize installer names
         shell: pwsh
         run: |
           $dir = "desktop/dist"
           Get-ChildItem $dir -Filter *.exe | Select-Object Name,Length | Format-Table -AutoSize | Out-String | Write-Host
-          foreach ($pair in @(@("mandiju-setup", "setup"), @("mandiju-portable", "portable"))) {
+          foreach ($pair in @(@("mandiju-setup", "mandiju-setup.exe"), @("mandiju-portable", "mandiju-portable.exe"))) {
             $src = Join-Path $dir "$($pair[0]).exe"
             if (Test-Path $src) {
-              Move-Item -Force $src (Join-Path $dir "mandiju-$($pair[1])-0.1.0.exe")
+              Copy-Item -Force $src (Join-Path $dir "$($pair[1]).keep")
             }
+          }
+          # 清掉可能带版本号的旧名，确保产物只剩稳定名
+          Get-ChildItem $dir -Filter "mandiju-setup-*.exe" | Remove-Item -Force -ErrorAction SilentlyContinue
+          Get-ChildItem $dir -Filter "mandiju-portable-*.exe" | Remove-Item -Force -ErrorAction SilentlyContinue
+          Get-ChildItem $dir -Filter *.keep | ForEach-Object {
+            Move-Item -Force $_.FullName (Join-Path $dir ($_.Name -replace '\.keep$', ''))
           }
           Get-ChildItem $dir -Filter *.exe | Select-Object Name,Length | Format-Table -AutoSize | Out-String | Write-Host
 

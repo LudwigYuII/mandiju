@@ -7,7 +7,7 @@ const LATEST_URL = `${RELEASES_URL}/latest/download`;
 const SETUP_URL = `${LATEST_URL}/mandiju-setup.exe`;
 const PORTABLE_URL = `${LATEST_URL}/mandiju-portable.exe`;
 
-const APP_VERSION = "v1.7.1";
+const APP_VERSION = "v1.8.0";
 
 /** 读取仓库内 APK 的体积与构建日期（Vercel 构建时 public/ 已在产物里） */
 function readApkInfo() {
