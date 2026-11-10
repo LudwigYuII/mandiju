@@ -51,7 +51,8 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          # Capacitor 8 的 capacitor-android 库以 Java 21 编译（source/targetCompatibility = VERSION_21），必须 21
+          java-version: '21'
 
       - uses: android-actions/setup-android@v3
 
@@ -60,7 +61,8 @@ jobs:
           SDKMANAGER="sdkmanager"
           command -v sdkmanager >/dev/null 2>&1 || SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --licenses > /dev/null || true
-          "$SDKMANAGER" --install "platforms;android-34" "build-tools;34.0.0" "platforms;android-36" "build-tools;36.0.0"
+          # AGP 8.13 默认使用 build-tools 35.0.0（本地构建已验证），必须显式安装
+          "$SDKMANAGER" --install "platforms;android-36" "build-tools;35.0.0" "build-tools;36.0.0" "platforms;android-34" "build-tools;34.0.0"
 
       - name: Generate android project
         run: |
