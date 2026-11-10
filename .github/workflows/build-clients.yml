@@ -79,7 +79,12 @@ jobs:
       - name: Generate android project
         run: |
           mkdir -p out
-          npx cap add android --no-sync
+          # android 平台目录不入库（.gitignore），每次全新生成。
+          # 注意：`cap add` 没有 --no-sync 选项（曾导致 CI "unknown option" 失败），
+          # 它会自动执行一次 sync，这里再显式 sync 一次保证插件配置最新。
+          if [ ! -d android/app/src/main ]; then
+            npx cap add android
+          fi
           npx cap sync android
 
       - name: Apply branding (icons / splash / colors)
@@ -216,10 +221,10 @@ jobs:
                 "createDesktopShortcut": true,
                 "createStartMenuShortcut": true,
                 "shortcutName": "慢递局",
-                "artifactName": "mandiju-setup-${version}.${ext}"
+                "artifactName": "mandiju-setup.${ext}"
               },
               "portable": {
-                "artifactName": "mandiju-portable-${version}.${ext}"
+                "artifactName": "mandiju-portable.${ext}"
               }
             }
           }

@@ -2,6 +2,15 @@ import Reveal from "@/components/Reveal";
 
 const LOG: { v: string; date: string; items: string[] }[] = [
   {
+    v: "v1.7.1 · 收尾",
+    date: "2026-11-10",
+    items: [
+      "修复客户端流水线（Android SDK 步骤与生成工程命令），APK / Windows 安装包恢复自动构建",
+      "下载页升级：显示安装包版本、体积与构建日期；Windows 安装版 / 便携版改为稳定直链",
+      "补充 APK 调试签名说明：跨版本覆盖安装前请先卸载旧版",
+    ],
+  },
+  {
     v: "v1.7 · 锦书",
     date: "2026-11-09",
     items: [
