@@ -2,7 +2,7 @@ import Reveal from "@/components/Reveal";
 
 const LOG: { v: string; date: string; items: string[] }[] = [
   {
-    v: "v1.8 · 集邮",
+    v: "v1.8 · 藏影",
     date: "2026-11-10",
     items: [
       "图片信件：不再限于明信片——任何信都可以附一张照片，信纸上白边微斜地贴着，像夹在信里寄来的旧照",
