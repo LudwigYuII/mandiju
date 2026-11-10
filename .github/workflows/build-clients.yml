@@ -1,19 +1,16 @@
 name: build-clients
 
 # 慢递局客户端构建
-# - push 到 main 且改动含 package.json 等：构建 Android APK 并提交到 public/downloads/mandiju.apk
+# - push 到 main：构建 Android APK 并提交回 public/downloads/mandiju.apk（[skip ci]）
 # - push 标签 v*：构建 APK + Windows 安装包并发布 GitHub Release
+#
+# 注意：这里刻意不加 `paths:` 过滤。GitHub Actions 的 paths 过滤对 tag push 同样生效，
+# 一旦启用，打 v* 标签的推送会被 paths 过滤掉 → Release 永远不触发（v1.7.1 就栽在这）。
 
 on:
   push:
     branches:
       - main
-    paths:
-      - package.json
-      - pnpm-lock.yaml
-      - capacitor.config.ts
-      - public/assets/logo/**
-      - .github/workflows/build-clients.yml
     tags:
       - v*
 
@@ -309,7 +306,17 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
+          draft: false
+          make_latest: true
+          fail_on_unmatched_files: true
+          body: |
+            慢递局客户端安装包（与 https://ludwig.uno 同源，壳内加载线上站点，站点更新即最新）。
+
+            - **Android**：`mandiju.apk`（debug 签名，若手机上装过别的机器构建的同名包，请先卸载再安装）
+            - **Windows 安装版**：`mandiju-setup-*.exe`（可选安装目录、创建桌面与开始菜单快捷方式）
+            - **Windows 免安装版**：`mandiju-portable-*.exe`
+
+            也可以不装客户端：手机直接用浏览器「添加到主屏幕」，Windows 用 Chrome/Edge 安装为桌面应用（PWA）。
           files: |
             artifacts/mandiju-apk/mandiju.apk
             artifacts/mandiju-windows/*.exe
-          draft: false
