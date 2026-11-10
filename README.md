@@ -19,7 +19,7 @@ pnpm dev            # http://localhost:3100（本机端口 3100，见下方说�
 
 ## 初始账号与邀请码
 
-- 管理员：`admin@mandiju.dev` / `kaizhang-2026`（可在环境变量 `MDJ_ADMIN_PASS` 覆盖）
+- 管理员：`admin@mandiju.dev`，口令由环境变量 `MDJ_ADMIN_PASS` 指定；未配置时首次初始化会随机生成一次性口令并打印在部署日志里（登录后请立即改密）。
 - 开张邀请码：`KAIZHANG`（首次注册用，用完即失效；之后每寄满 10 封信自动获得 3 枚）
 
 ## 已实现（v1）
