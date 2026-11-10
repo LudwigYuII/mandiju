@@ -54,6 +54,7 @@ export default async function WritePage({
       <h1 className="rise text-3xl font-semibold tracking-tight">写信</h1>
       <WriteForm
         pen={String(meRow.pen_name)}
+        mySeal={String(meRow.seal_text || String(meRow.pen_name)[0] || "印")}
         penpals={penpals.map((p) => ({
           pen: p.pen,
           avatarId: p.avatarId,

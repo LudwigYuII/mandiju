@@ -11,6 +11,7 @@ import {
   deleteAnnouncementAction,
 } from "@/lib/actions";
 import GenerateInvites from "@/components/GenerateInvites";
+import MailTest from "@/components/MailTest";
 import Reveal from "@/components/Reveal";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ export default async function AdminPage() {
   await waitDb();
   const sess = await getSession();
   if (!sess) redirect("/login");
-  const me = (await db.execute({ sql: "SELECT role FROM users WHERE id=?", args: [sess.uid] })).rows[0] as any;
+  const me = (await db.execute({ sql: "SELECT role, email FROM users WHERE id=?", args: [sess.uid] })).rows[0] as any;
   if (String(me?.role) !== "admin") redirect("/");
 
   const [users, stats, letters, announcements, invites, pool] = await Promise.all([
@@ -248,6 +249,16 @@ export default async function AdminPage() {
               ))}
             </ul>
           )}
+        </section>
+      </Reveal>
+      <Reveal delay={200}>
+        <section className="card glass p-5">
+          <h2 className="text-sm font-semibold tracking-widest">邮件通道</h2>
+          <p className="mt-1 text-xs text-ink-soft">
+            来信/胶囊/找回密码的邮件都走 Resend。填一个你自己的真实邮箱发一封自检信，
+            收到即说明通道正常；失败时这里会显示 Resend 返回的具体错误。
+          </p>
+          <MailTest defaultTo={String(me?.email ?? "")} />
         </section>
       </Reveal>
     </div>

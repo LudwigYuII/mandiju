@@ -97,6 +97,7 @@ function playThud() {
 
 export default function WriteForm({
   pen,
+  mySeal,
   penpals,
   stamps,
   coins,
@@ -106,6 +107,7 @@ export default function WriteForm({
   drafts,
 }: {
   pen: string;
+  mySeal: string;
   penpals: PenPal[];
   stamps: StampOpt[];
   coins: number;
@@ -544,13 +546,14 @@ export default function WriteForm({
         <section>
           <h3 className="mb-2.5 text-sm font-semibold">火漆封缄</h3>
           <div className="card glass flex items-center gap-5 p-4">
-            <div className="shrink-0">
+            <div className="shrink-0 text-center">
               <Seal
-                char={pen[0] || "印"}
+                char={mySeal || pen[0] || "印"}
                 size={64}
                 tone={sealToneToRender(sealColor)}
                 pattern={sealPattern}
               />
+              <p className="mt-1 text-[10px] text-ink-soft">你的私印</p>
             </div>
             <div className="flex-1 space-y-3">
               <div>

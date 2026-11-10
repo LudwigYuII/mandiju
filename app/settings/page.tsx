@@ -142,7 +142,9 @@ export default async function SettingsPage() {
 
       <section className="card glass p-5">
         <h2 className="text-sm font-semibold tracking-widest">头像</h2>
-        <p className="mt-1 text-xs text-ink-soft">可以上传自己的图片，也可以用官方汉服小人。</p>
+        <p className="mt-1 text-xs text-ink-soft">
+          上传自己的整图头像，或组合「官方汉服小人 + 自定义背景（毛玻璃雾化）」。
+        </p>
         <div className="mt-4">
           <ProfileAvatarEditor
             pen={String(me.pen_name)}

@@ -30,7 +30,9 @@ export default function ProfileAvatarEditor({
     currentAvatar.startsWith("upload:") ? currentAvatar.slice(7) : ""
   );
   const [uploading, setUploading] = useState(false);
+  const [bgUploading, setBgUploading] = useState(false);
   const [uploadErr, setUploadErr] = useState("");
+  const [bgErr, setBgErr] = useState("");
   const [profileState, profileAction, profilePending] = useActionState<ActionState, FormData>(
     updateProfileAction,
     {}
@@ -40,30 +42,36 @@ export default function ProfileAvatarEditor({
     {}
   );
   const fileRef = useRef<HTMLInputElement>(null);
+  const bgFileRef = useRef<HTMLInputElement>(null);
 
-  const pick = async (f: File) => {
-    setUploading(true);
-    setUploadErr("");
+  const upload = async (f: File, kind: "avatar" | "bg") => {
+    const setBusy = kind === "avatar" ? setUploading : setBgUploading;
+    const setErr = kind === "avatar" ? setUploadErr : setBgErr;
+    setBusy(true);
+    setErr("");
     try {
       const fd = new FormData();
       fd.append("file", f);
       const r = await fetch("/api/upload", { method: "POST", body: fd });
       const j = await r.json();
       if (!r.ok) {
-        setUploadErr(j.error || "上传失败");
+        setErr(j.error || "上传失败");
         return;
       }
-      setUploadUrl(j.url);
+      if (kind === "avatar") setUploadUrl(j.url);
+      else setBgId(`upload:${j.url}`);
     } catch {
-      setUploadErr("上传失败");
+      setErr("上传失败");
     } finally {
-      setUploading(false);
+      setBusy(false);
     }
   };
 
+  const usingUploadedBg = bgId.startsWith("upload:");
+
   return (
     <div className="space-y-5">
-      {/* 当前头像 + 上传 */}
+      {/* 当前头像 + 上传整图 */}
       <div className="flex items-center gap-4">
         <Avatar pen={pen} avatarId={currentAvatar} bgId={currentBg} size={64} />
         <div>
@@ -73,7 +81,7 @@ export default function ProfileAvatarEditor({
             className="btn-ghost"
             disabled={uploading}
           >
-            {uploading ? "上传中…" : "上传图片"}
+            {uploading ? "上传中…" : "上传整图头像"}
           </button>
           <input
             ref={fileRef}
@@ -82,7 +90,7 @@ export default function ProfileAvatarEditor({
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) pick(f);
+              if (f) upload(f, "avatar");
             }}
           />
           {uploadUrl && (
@@ -95,14 +103,29 @@ export default function ProfileAvatarEditor({
           )}
           {uploadErr && <p className="mt-1 text-xs text-vermilion">{uploadErr}</p>}
           {uploadState?.ok && <p className="mt-1 text-xs text-postblue">已设为头像</p>}
-          <p className="mt-1 text-xs text-ink-soft">JPG/PNG/WebP，不超过 5MB</p>
+          <p className="mt-1 text-xs text-ink-soft">JPG/PNG/WebP，不超过 5MB；整图头像不叠小人</p>
         </div>
       </div>
 
-      {/* 官方小人 */}
-      <form action={profileAction} className="space-y-3 border-t border-black/5 pt-4 dark:border-white/10">
+      {/* 官方小人 + 背景组合 */}
+      <form
+        action={profileAction}
+        className="space-y-3 border-t border-black/5 pt-4 dark:border-white/10"
+      >
         <input type="hidden" name="avatarId" value={avatarId} />
         <input type="hidden" name="bgId" value={bgId} />
+
+        <div className="flex items-center gap-4 rounded-xl bg-paper2/40 p-3">
+          <Avatar pen={pen} avatarId={avatarId} bgId={bgId} size={72} className="ring-1 ring-black/5" />
+          <div className="text-xs leading-relaxed text-ink-soft">
+            <p className="font-semibold text-ink">身份预览</p>
+            <p>
+              官方小人 + {usingUploadedBg ? "你上传的背景（毛玻璃雾化）" : "官方背景"}，
+              会出现在页头、书房题签与信件落款处。
+            </p>
+          </div>
+        </div>
+
         <p className="text-xs font-semibold text-ink-soft">官方小人</p>
         <div className="grid grid-cols-6 gap-1.5">
           {avatars.map((a) => (
@@ -120,7 +143,29 @@ export default function ProfileAvatarEditor({
             </button>
           ))}
         </div>
-        <p className="text-xs font-semibold text-ink-soft">背景</p>
+
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold text-ink-soft">背景</p>
+          <button
+            type="button"
+            onClick={() => bgFileRef.current?.click()}
+            className="text-xs text-vermilion hover:underline"
+            disabled={bgUploading}
+          >
+            {bgUploading ? "上传中…" : "上传自定义背景（毛玻璃）"}
+          </button>
+          <input
+            ref={bgFileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) upload(f, "bg");
+            }}
+          />
+        </div>
+        {bgErr && <p className="text-xs text-vermilion">{bgErr}</p>}
         <div className="grid grid-cols-4 gap-1.5">
           {backgrounds.map((b) => (
             <button
@@ -137,10 +182,17 @@ export default function ProfileAvatarEditor({
             </button>
           ))}
         </div>
+        {usingUploadedBg && (
+          <p className="text-xs text-ink-soft">
+            自定义背景已选中；点任一官方背景即可切回。
+          </p>
+        )}
+
         <button className="btn !px-4 !py-2 !text-sm" disabled={profilePending}>
-          使用官方头像
+          保存身份
         </button>
         {profileState?.ok && <p className="text-xs text-postblue">已更新</p>}
+        {profileState?.error && <p className="text-xs text-vermilion">{profileState.error}</p>}
       </form>
     </div>
   );

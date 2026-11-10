@@ -12,6 +12,7 @@ import { todayFirstDay } from "./calendar";
 import { notify } from "./notify";
 import { sendMail } from "./mail";
 import { canWriteTo } from "./friends";
+import { rateLimit, tooManyText } from "./rate-limit";
 import { BURN_OPTIONS } from "./burn";
 import { wipeBurn } from "./burn-db";
 import type { WeatherInfo } from "./weather";
@@ -20,6 +21,14 @@ export type ActionState = { error?: string; ok?: boolean };
 
 function needText(v: FormDataEntryValue | null): string {
   return String(v ?? "").trim();
+}
+
+/** 校验「上传图片引用」：本地 uploads/ 相对路径，或 R2 的 http(s) 绝对地址 */
+function isUploadRef(v: string): boolean {
+  if (!v) return false;
+  const p = v.startsWith("upload:") ? v.slice(7) : v;
+  if (!/\.(jpe?g|png|webp|gif)$/i.test(p)) return false;
+  return p.startsWith("uploads/") || /^https?:\/\//i.test(p);
 }
 
 // ---------- 注册 ----------
@@ -39,6 +48,10 @@ export async function registerAction(_prev: ActionState, formData: FormData): Pr
   if (pen.length < 1 || pen.length > 12) return { error: "笔名 1–12 个字符" };
   if (!/^[\u4e00-\u9fa5]{1,2}$/.test(seal)) return { error: "私印需为 1–2 个汉字" };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "邮箱格式不正确" };
+
+  // 防批量刷邀请码：同一邮箱 1 小时内最多 3 次注册尝试
+  const rl = await rateLimit(`register:${email}`, 3, 60 * 60 * 1000);
+  if (!rl.ok) return { error: tooManyText(rl.retryAfter) };
 
   const inv = await db.execute({
     sql: "SELECT id FROM invites WHERE code=? AND used_by IS NULL LIMIT 1",
@@ -73,6 +86,10 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
   const pass = needText(formData.get("password"));
   if (!email || !pass) return { error: "请填写邮箱和密码" };
 
+  // 防密码爆破：同一邮箱 10 分钟内最多 8 次尝试
+  const rl = await rateLimit(`login:${email}`, 8, 10 * 60 * 1000);
+  if (!rl.ok) return { error: tooManyText(rl.retryAfter) };
+
   const r = await db.execute({ sql: "SELECT * FROM users WHERE email=?", args: [email] });
   const u = r.rows[0] as any;
   if (!u || !(await bcrypt.compare(pass, String(u.password_hash)))) {
@@ -95,6 +112,10 @@ export async function createLetterAction(_prev: ActionState, formData: FormData)
 
   const meBan = await db.execute({ sql: "SELECT banned FROM users WHERE id=?", args: [sess.uid] });
   if (Number((meBan.rows[0] as any)?.banned) === 1) return { error: "你的账号已被暂停寄信" };
+
+  // 防刷屏：同一账号 1 小时内最多寄 30 封
+  const rl = await rateLimit(`write:${sess.uid}`, 30, 60 * 60 * 1000);
+  if (!rl.ok) return { error: tooManyText(rl.retryAfter) };
 
   const recipientPen = needText(formData.get("recipient"));
   const genre = needText(formData.get("genre"));
@@ -140,7 +161,7 @@ export async function createLetterAction(_prev: ActionState, formData: FormData)
   // 明信片：一张图 + 一句话
   if (genre === "postcard") {
     if (!image) return { error: "明信片需要一张图" };
-    if (!image.startsWith("uploads/")) return { error: "图片无效" };
+    if (!isUploadRef(image)) return { error: "图片无效" };
     if (!body) return { error: "明信片需要一句话" };
   }
 
@@ -314,6 +335,14 @@ export async function updateProfileAction(_prev: ActionState, formData: FormData
   if (!sess) redirect("/login");
   const avatarId = needText(formData.get("avatarId")) || "C01";
   const bgId = needText(formData.get("bgId")) || "D01";
+
+  // 小人只接受官方预设编号
+  if (!/^C\d{2}$/.test(avatarId)) return { error: "无效的小人编号" };
+  // 背景：官方预设（D 开头）或用户上传的图片（upload:<本地路径或 R2 地址>）
+  const isPresetBg = /^D\d{2}$/.test(bgId);
+  const isUploadBg = bgId.startsWith("upload:") && isUploadRef(bgId);
+  if (!isPresetBg && !isUploadBg) return { error: "无效的背景图片" };
+
   await db.execute({
     sql: "UPDATE users SET avatar_id=?, bg_id=? WHERE id=?",
     args: [avatarId, bgId, sess.uid],
@@ -329,7 +358,7 @@ export async function updateUploadAvatarAction(_prev: ActionState, formData: For
   const sess = await getSession();
   if (!sess) redirect("/login");
   const upload = needText(formData.get("upload"));
-  if (!upload.startsWith("uploads/")) return { error: "无效文件" };
+  if (!isUploadRef(upload)) return { error: "无效文件" };
   await db.execute({
     sql: "UPDATE users SET avatar_id=? WHERE id=?",
     args: [`upload:${upload}`, sess.uid],
@@ -572,6 +601,9 @@ export async function markAllNotificationsAction(): Promise<void> {
 export async function forgotPasswordAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await waitDb();
   const email = needText(formData.get("email")).toLowerCase();
+  // 防验证码轰炸：同一邮箱 1 小时内最多 3 次
+  const rl = await rateLimit(`forgot:${email}`, 3, 60 * 60 * 1000);
+  if (!rl.ok) return { error: tooManyText(rl.retryAfter) };
   const u = await db.execute({ sql: "SELECT id FROM users WHERE email=?", args: [email] });
   if (u.rows.length === 0) return { error: "该邮箱未注册" };
   const uid = String((u.rows[0] as any).id);
@@ -591,6 +623,9 @@ export async function resetPasswordAction(_prev: ActionState, formData: FormData
   const code = needText(formData.get("code"));
   const pass = needText(formData.get("password"));
   if (pass.length < 6) return { error: "密码至少 6 位" };
+  // 防验证码穷举：同一邮箱 15 分钟内最多 10 次
+  const rl = await rateLimit(`reset:${email}`, 10, 15 * 60 * 1000);
+  if (!rl.ok) return { error: tooManyText(rl.retryAfter) };
   const u = await db.execute({ sql: "SELECT id FROM users WHERE email=?", args: [email] });
   if (u.rows.length === 0) return { error: "邮箱未注册" };
   const uid = String((u.rows[0] as any).id);
@@ -803,6 +838,25 @@ export async function deleteAnnouncementAction(formData: FormData): Promise<void
   await db.execute({ sql: "DELETE FROM announcements WHERE id=?", args: [id] });
   revalidatePath("/admin");
   revalidatePath("/");
+}
+
+/** 邮件通道自检：向指定邮箱发一封测试信，返回真实投递结果（站长专用） */
+export async function sendTestMailAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await waitDb();
+  const sess = await requireAdmin();
+  const me = (await db.execute({ sql: "SELECT email FROM users WHERE id=?", args: [sess.uid] })).rows[0] as any;
+  const to = needText(formData.get("to")) || String(me?.email ?? "");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return { error: "请填写有效邮箱" };
+  const rl = await rateLimit(`testmail:${sess.uid}`, 5, 30 * 60 * 1000);
+  if (!rl.ok) return { error: tooManyText(rl.retryAfter) };
+
+  const result = await sendMail(
+    to,
+    "慢递局 · 邮件通道自检",
+    `这是一封自检邮件（${new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}）。\n收到它说明慢递局的邮件通知通道已经打通：有人给你寄信、时光胶囊解锁、找回密码验证码都会通过这里送达。`
+  );
+  if (!result.ok) return { error: `发送失败：${result.error ?? "未知错误"}` };
+  return { ok: true };
 }
 
 // ---------- 阅后即焚 ----------

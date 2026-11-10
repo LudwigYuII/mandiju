@@ -36,6 +36,9 @@ export default async function StudyPage({ params }: { params: Promise<{ pen: str
   const avatarSrc = String(u.avatar_id).startsWith("upload:")
     ? imgUrl(String(u.avatar_id).slice(7))
     : avatarFile(String(u.avatar_id));
+  const bgRaw = String(u.bg_id);
+  const bgUploaded = bgRaw.startsWith("upload:");
+  const bgSrc = bgUploaded ? imgUrl(bgRaw.slice(7)) : bgFile(bgRaw);
 
   // 是否笔友或曾往来：满足任一即可进入「往来册」
   let exchanged = false;
@@ -54,11 +57,27 @@ export default async function StudyPage({ params }: { params: Promise<{ pen: str
   return (
     <div className="space-y-5">
       {/* 题签 */}
-      <div
-        className="card glass relative overflow-hidden"
-        style={{ backgroundImage: `url(${bgFile(String(u.bg_id))})`, backgroundSize: "cover", backgroundPosition: "center" }}
-      >
-        <div className="flex items-end justify-between bg-black/25 p-5 pt-16 backdrop-blur-[2px]">
+      <div className="card glass relative overflow-hidden">
+        {bgUploaded ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={bgSrc}
+              alt=""
+              aria-hidden
+              loading="lazy"
+              decoding="async"
+              className="absolute inset-0 h-full w-full scale-110 object-cover blur-md"
+            />
+            <div className="absolute inset-0 bg-black/20" />
+          </>
+        ) : (
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: `url(${bgSrc})` }}
+          />
+        )}
+        <div className="relative flex items-end justify-between bg-black/25 p-5 pt-16 backdrop-blur-[2px]">
           <div className="flex items-end gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={avatarSrc} alt="" loading="lazy" decoding="async" className="h-24" />

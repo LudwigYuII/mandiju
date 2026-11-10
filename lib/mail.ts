@@ -3,14 +3,16 @@ import { db } from "./db";
 import { notify } from "./notify";
 import { sendPushToUser } from "./push";
 
-export async function sendMail(to: string, subject: string, text: string) {
+export type MailResult = { ok: boolean; error?: string };
+
+export async function sendMail(to: string, subject: string, text: string): Promise<MailResult> {
   const key = process.env.RESEND_API_KEY;
   if (!key) {
     console.log(`[MAIL] to=${to} | ${subject} | ${text}`);
-    return;
+    return { ok: false, error: "未配置 RESEND_API_KEY（当前降级为控制台日志）" };
   }
   try {
-    await fetch("https://api.resend.com/emails", {
+    const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${key}`,
@@ -23,8 +25,15 @@ export async function sendMail(to: string, subject: string, text: string) {
         text,
       }),
     });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error("[MAIL] send failed:", res.status, body);
+      return { ok: false, error: `Resend ${res.status}：${body.slice(0, 300)}` };
+    }
+    return { ok: true };
   } catch (e) {
     console.error("[MAIL] send failed:", e);
+    return { ok: false, error: String(e) };
   }
 }
 

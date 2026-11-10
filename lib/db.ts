@@ -189,6 +189,11 @@ async function init() {
       auth TEXT NOT NULL,
       created_at INTEGER NOT NULL
     )`,
+    `CREATE TABLE IF NOT EXISTS rate_limits (
+      key TEXT PRIMARY KEY,
+      count INTEGER NOT NULL,
+      reset_at INTEGER NOT NULL
+    )`,
     `CREATE INDEX IF NOT EXISTS idx_letters_deliver ON letters(deliver_at)`,
     `CREATE INDEX IF NOT EXISTS idx_letters_author ON letters(author_id)`,
     `CREATE INDEX IF NOT EXISTS idx_letters_recipient ON letters(recipient_id)`,
