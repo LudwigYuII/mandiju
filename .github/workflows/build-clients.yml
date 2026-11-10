@@ -1,0 +1,294 @@
+name: build-clients
+
+# 慢递局客户端构建
+# - push 到 main 且改动含 package.json 等：构建 Android APK 并提交到 public/downloads/mandiju.apk
+# - push 标签 v*：构建 APK + Windows 安装包并发布 GitHub Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - package.json
+      - pnpm-lock.yaml
+      - capacitor.config.ts
+      - public/assets/logo/**
+      - .github/workflows/build-clients.yml
+    tags:
+      - v*
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-clients-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install web deps
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Add Capacitor deps (idempotent)
+        run: pnpm add -D @capacitor/cli @capacitor/core @capacitor/android
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Accept licenses and install SDK packages
+        run: |
+          SDKMANAGER="sdkmanager"
+          command -v sdkmanager >/dev/null 2>&1 || SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" --install "platforms;android-34" "build-tools;34.0.0" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Generate android project
+        run: |
+          mkdir -p out
+          npx cap add android --no-sync
+          npx cap sync android
+
+      - name: Apply branding (icons / splash / colors)
+        run: |
+          RES=android/app/src/main/res
+          LOGO=public/assets/logo/A0.png
+
+          # colors.xml：模板 styles.xml 引用了 @color/colorPrimary，需补齐；另定义 splash 底色
+          cat > "$RES/values/colors.xml" <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="colorPrimary">#c03a2b</color>
+              <color name="colorPrimaryDark">#a03224</color>
+              <color name="colorAccent">#d6452f</color>
+              <color name="splash_background">#f3ecde</color>
+          </resources>
+          EOF
+
+          # 自适应图标背景 → 米纸色
+          sed -i 's/#FFFFFF/#F3ECDE/' "$RES/values/ic_launcher_background.xml"
+
+          # 启动主题：splash 背景色 + 图标（Android 12+）
+          python3 - <<'PY'
+          import io
+          p = "android/app/src/main/res/values/styles.xml"
+          s = io.open(p, encoding="utf-8").read()
+          old = '<item name="android:background">@drawable/splash</item>'
+          new = old + '''
+                  <item name="windowSplashScreenBackground">@color/splash_background</item>
+                  <item name="windowSplashScreenAnimatedIcon">@drawable/splash</item>'''
+          assert old in s, "styles.xml pattern not found"
+          io.open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
+          PY
+
+          # 传统启动图标（米纸底铺满 logo）+ 自适应前景（透明底 108dp 铺满）
+          for d in "mdpi:48" "hdpi:72" "xhdpi:96" "xxhdpi:144" "xxxhdpi:192"; do
+            den="${d%%:*}"; s="${d##*:}"
+            convert "$LOGO" -resize "${s}x${s}" "$RES/mipmap-$den/ic_launcher.png"
+            cp "$RES/mipmap-$den/ic_launcher.png" "$RES/mipmap-$den/ic_launcher_round.png"
+          done
+          for d in "mdpi:108" "hdpi:162" "xhdpi:216" "xxhdpi:324" "xxxhdpi:432"; do
+            den="${d%%:*}"; s="${d##*:}"
+            convert "$LOGO" -resize "${s}x${s}" "$RES/mipmap-$den/ic_launcher_foreground.png"
+          done
+
+          # splash：2732x2732 米纸底 + logo 居中 1024
+          convert -size 2732x2732 xc:"#f3ecde" \( "$LOGO" -resize 1024x1024 \) -gravity center -composite "$RES/drawable/splash.png"
+
+          # 删除未被引用的横竖屏 splash 变体，减小 APK 体积
+          rm -rf "$RES"/drawable-land-* "$RES"/drawable-port-*
+
+      - name: Build debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Rename and stage APK
+        run: |
+          mkdir -p public/downloads
+          cp android/app/build/outputs/apk/debug/app-debug.apk mandiju.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk public/downloads/mandiju.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mandiju-apk
+          path: mandiju.apk
+          if-no-files-found: error
+
+      - name: Commit APK back to repo (main branch only)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --rebase --autostash origin main || echo "pull failed, continuing"
+          git add -f public/downloads/mandiju.apk
+          if git diff --cached --quiet; then
+            echo "APK unchanged, skip commit"
+          else
+            git commit -m "build: 更新 Android APK (mandiju.apk) [skip ci]"
+            git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:main
+          fi
+
+  win:
+    name: Windows Desktop
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Create desktop shell project
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force desktop | Out-Null
+          Copy-Item public/assets/logo/A0.png desktop/icon.png
+          @'
+          {
+            "name": "mandiju-desktop",
+            "version": "0.1.0",
+            "private": true,
+            "description": "慢递局 Windows 桌面壳",
+            "main": "main.js",
+            "scripts": {
+              "start": "electron .",
+              "dist": "electron-builder --win"
+            },
+            "devDependencies": {
+              "electron": "^31.7.7",
+              "electron-builder": "^25.1.8"
+            },
+            "pnpm": {
+              "onlyBuiltDependencies": ["electron", "esbuild"]
+            },
+            "build": {
+              "appId": "uno.ludwig.mandiju",
+              "productName": "慢递局",
+              "directories": { "output": "dist" },
+              "files": ["main.js", "package.json", "icon.png"],
+              "win": { "icon": "icon.png", "target": ["nsis", "portable"] },
+              "nsis": {
+                "oneClick": false,
+                "allowToChangeInstallationDirectory": true,
+                "createDesktopShortcut": true,
+                "createStartMenuShortcut": true,
+                "shortcutName": "慢递局",
+                "artifactName": "mandiju-setup-${version}.${ext}"
+              },
+              "portable": {
+                "artifactName": "mandiju-portable-${version}.${ext}"
+              }
+            }
+          }
+          '@ | Set-Content -Encoding UTF8 desktop/package.json
+          @'
+          onlyBuiltDependencies:
+            - electron
+            - esbuild
+          '@ | Set-Content -Encoding UTF8 desktop/pnpm-workspace.yaml
+          @'
+          const { app, BrowserWindow, Menu, shell } = require('electron');
+          const path = require('path');
+          const SITE_URL = 'https://ludwig.uno';
+          function isSameSite(url) {
+            try {
+              const host = new URL(url).host;
+              return host === 'ludwig.uno' || host.endsWith('.ludwig.uno');
+            } catch { return false; }
+          }
+          function createWindow() {
+            const win = new BrowserWindow({
+              width: 800,
+              height: 1000,
+              title: '慢递局',
+              icon: path.join(__dirname, 'icon.png'),
+              autoHideMenuBar: true,
+              backgroundColor: '#f3ecde',
+              webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+            });
+            win.loadURL(SITE_URL);
+            win.webContents.setWindowOpenHandler(({ url }) => {
+              shell.openExternal(url);
+              return { action: 'deny' };
+            });
+            win.webContents.on('will-navigate', (event, url) => {
+              if (!isSameSite(url)) {
+                event.preventDefault();
+                shell.openExternal(url);
+              }
+            });
+          }
+          app.whenReady().then(() => {
+            Menu.setApplicationMenu(null);
+            createWindow();
+            app.on('activate', () => {
+              if (BrowserWindow.getAllWindows().length === 0) createWindow();
+            });
+          });
+          app.on('window-all-closed', () => {
+            if (process.platform !== 'darwin') app.quit();
+          });
+          '@ | Set-Content -Encoding UTF8 desktop/main.js
+
+      - name: Install desktop deps
+        working-directory: desktop
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build NSIS + portable
+        working-directory: desktop
+        run: pnpm exec electron-builder --win
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mandiju-windows
+          path: |
+            desktop/dist/mandiju-setup-*.exe
+            desktop/dist/mandiju-portable-*.exe
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: [apk, win]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/mandiju-apk/mandiju.apk
+            artifacts/mandiju-windows/*.exe
+          draft: false
