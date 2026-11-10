@@ -54,15 +54,27 @@ jobs:
           # Capacitor 8 的 capacitor-android 库以 Java 21 编译（source/targetCompatibility = VERSION_21），必须 21
           java-version: '21'
 
-      - uses: android-actions/setup-android@v3
-
-      - name: Accept licenses and install SDK packages
+      # 不要再使用 android-actions/setup-android@v3：它内部执行 `sdkmanager tools`，
+      # 而新版 cmdline-tools（16.0+）已移除 "tools" 包，会直接 `Failed to find package 'tools'` 失败。
+      # ubuntu-latest 镜像自带 SDK，手动接受许可 + 安装所需包即可。
+      - name: Prepare Android SDK
         run: |
-          SDKMANAGER="sdkmanager"
-          command -v sdkmanager >/dev/null 2>&1 || SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          set -euo pipefail
+          SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          if [ ! -d "$SDK" ]; then echo "Android SDK not found at $SDK"; exit 1; fi
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          if [ -x "$SDK/cmdline-tools/latest/bin/sdkmanager" ]; then
+            CMDLINE="$SDK/cmdline-tools/latest/bin"
+          else
+            CMDLINE="$(dirname "$(ls -d "$SDK"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | tail -n1)")"
+          fi
+          echo "cmdline-tools: $CMDLINE"
+          echo "$CMDLINE" >> "$GITHUB_PATH"
+          SDKMANAGER="$CMDLINE/sdkmanager"
+          yes | "$SDKMANAGER" --sdk_root="$SDK" --licenses > /dev/null 2>&1 || true
           # AGP 8.13 默认使用 build-tools 35.0.0（本地构建已验证），必须显式安装
-          "$SDKMANAGER" --install "platforms;android-36" "build-tools;35.0.0" "build-tools;36.0.0" "platforms;android-34" "build-tools;34.0.0"
+          "$SDKMANAGER" --sdk_root="$SDK" --install "platforms;android-36" "build-tools;35.0.0" "build-tools;36.0.0" "platforms;android-34" "build-tools;34.0.0" | tail -n 5
 
       - name: Generate android project
         run: |
@@ -74,6 +86,8 @@ jobs:
         run: |
           RES=android/app/src/main/res
           LOGO=public/assets/logo/A0.png
+          # ubuntu 镜像通常自带 ImageMagick 6 的 convert，缺失则补装
+          command -v convert >/dev/null 2>&1 || { sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick; }
 
           # colors.xml：模板 styles.xml 引用了 @color/colorPrimary，需补齐；另定义 splash 底色
           cat > "$RES/values/colors.xml" <<'EOF'
