@@ -64,7 +64,7 @@ export default function LetterCard({ l, ghost = false }: { l: LetterRow; ghost?:
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={imgUrl(String(l.image))}
-            alt=""
+            alt={l.genre === "postcard" ? "明信片" : "信中的照片"}
             loading="lazy"
             decoding="async"
             className="mb-3 h-28 w-full rounded-xl object-cover"

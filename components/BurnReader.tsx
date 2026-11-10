@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { openBurnLetterAction, burnLetterAction } from "@/lib/actions";
 import { genreLabel, postageLabel, fmtTime } from "@/lib/delivery";
 import { burnLabel } from "@/lib/burn";
+import { imgUrl } from "@/lib/assets";
 import { rustle } from "./Envelope";
 import Seal, { sealToneOf, sealPatternOf, sealToneToRender, type LetterSealTone, type SealPattern } from "./Seal";
 import { paperKindOf, paperClass, type PaperKind } from "./paper";
@@ -29,7 +30,7 @@ type Meta = {
   burnSeconds: number;
 };
 
-type Content = { body: string; title: string; genre: string };
+type Content = { body: string; title: string; genre: string; image?: string };
 
 /** 阅后即焚的拆封与燃烧：信封 → 拆封取信（唯一一次下发正文） → 倒计时 → 焚毁 */
 export default function BurnReader({ letterId, meta }: { letterId: string; meta: Meta }) {
@@ -58,7 +59,7 @@ export default function BurnReader({ letterId, meta }: { letterId: string; meta:
         setPhase("burned");
         return;
       }
-      setContent({ body: res.body, title: res.title, genre: res.genre });
+      setContent({ body: res.body, title: res.title, genre: res.genre, image: res.image });
       setDeadline(res.deadline);
       setRemaining(Math.max(0, res.deadline - Date.now()));
       try {
@@ -188,6 +189,16 @@ export default function BurnReader({ letterId, meta }: { letterId: string; meta:
 
           {/* 正文 */}
           <h1 className="mt-5 text-2xl font-semibold tracking-tight">{content.title}</h1>
+          {content.image && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={imgUrl(content.image)}
+              alt="随信附上的照片"
+              loading="lazy"
+              decoding="async"
+              className="mx-auto mt-4 max-h-64 w-auto max-w-full rounded-lg border-4 border-white object-contain shadow-md dark:border-white/80"
+            />
+          )}
           <div
             className={`mt-3 whitespace-pre-wrap text-[17px] ${
               content.genre === "poem" ? "poem" : "prose-letter"

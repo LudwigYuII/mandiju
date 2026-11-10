@@ -6,11 +6,11 @@ import bcrypt from "bcryptjs";
 import { db, waitDb } from "./db";
 import { createSession, clearSession, getSession } from "./auth";
 import { deliverAt, postageCost } from "./delivery";
-import { availableStamps, applySendGrants, weatherCodeToStampId, grantStamp, isSeasonalStamp } from "./stamps";
+import { availableStamps, applySendGrants, applyAchievementGrants, weatherCodeToStampId, grantStamp, isSeasonalStamp } from "./stamps";
 import { monthKey, monthStamp, currentHost, getCurrentTopic, getTopicById } from "./topics";
 import { todayFirstDay } from "./calendar";
 import { notify } from "./notify";
-import { sendMail } from "./mail";
+import { sendMail, sendReplyNoticeEmail } from "./mail";
 import { canWriteTo } from "./friends";
 import { rateLimit, tooManyText } from "./rate-limit";
 import { BURN_OPTIONS } from "./burn";
@@ -158,10 +158,11 @@ export async function createLetterAction(_prev: ActionState, formData: FormData)
     return { error: "标题和正文不能为空" };
   }
 
+  // 照片：所有体裁都可选贴一张（明信片必填）。类型/体积已由 /api/upload 限制
+  if (image && !isUploadRef(image)) return { error: "图片无效" };
   // 明信片：一张图 + 一句话
   if (genre === "postcard") {
     if (!image) return { error: "明信片需要一张图" };
-    if (!isUploadRef(image)) return { error: "图片无效" };
     if (!body) return { error: "明信片需要一句话" };
   }
 
@@ -241,7 +242,7 @@ export async function createLetterAction(_prev: ActionState, formData: FormData)
       city,
       weather?.temp ?? null,
       cost,
-      genre === "postcard" ? image : null,
+      image || null,
       firstDay ? 1 : 0,
       replyTo || null,
       now,
@@ -276,6 +277,8 @@ export async function createLetterAction(_prev: ActionState, formData: FormData)
 
   const weatherStamp = weather ? weatherCodeToStampId(weather.code, weather.gust) : null;
   await applySendGrants(sess.uid, sent, weatherStamp);
+  // 集邮册成就：寄出封数达标即时解锁信纸/封蜡并通知（幂等，同一档只发一次）
+  await applyAchievementGrants(sess.uid, sent);
 
   // 使用即解锁：当年限定票（节气/节日）用这枚票寄出即入藏
   const season = isSeasonalStamp(stampId);
@@ -383,7 +386,16 @@ export async function addReplyAction(_prev: ActionState, formData: FormData): Pr
   const l = await db.execute({ sql: "SELECT author_id, title FROM letters WHERE id=?", args: [letterId] });
   const authorId = String((l.rows[0] as any)?.author_id ?? "");
   if (authorId && authorId !== sess.uid) {
-    await notify(authorId, "reply", `有人在《${String((l.rows[0] as any).title)}》下批注了你的信`, `/letter/${letterId}`);
+    const letterTitle = String((l.rows[0] as any).title ?? "");
+    await notify(authorId, "reply", `有人在《${letterTitle}》下批注了你的信`, `/letter/${letterId}`);
+    // 有 Resend 配置就顺带发一封邮件提醒（无配置静默跳过，失败不影响批注）
+    await sendReplyNoticeEmail({
+      authorId,
+      letterId,
+      letterTitle,
+      replierPen: sess.pen,
+      replyBody: body,
+    });
   }
   revalidatePath(`/letter/${letterId}`);
   return { ok: true };
@@ -513,6 +525,8 @@ export async function saveDraftAction(_prev: ActionState, formData: FormData): P
   const title = needText(formData.get("title"));
   const body = needText(formData.get("body"));
   if (!title && !body) return { error: "空草稿不值得保存" };
+  const image = needText(formData.get("image"));
+  if (image && !isUploadRef(image)) return { error: "图片无效" };
   const draftId = needText(formData.get("draftId"));
   const id = draftId || crypto.randomUUID();
   const burnRaw = needText(formData.get("burnSeconds"));
@@ -545,7 +559,7 @@ export async function saveDraftAction(_prev: ActionState, formData: FormData): P
       needText(formData.get("recipient")) || null,
       needText(formData.get("city")) || null,
       needText(formData.get("weather")) || null,
-      needText(formData.get("image")) || null,
+      image || null,
       needText(formData.get("capsuleDate")) || null,
       needText(formData.get("topicId")) || null,
       needText(formData.get("replyTo")) || null,
@@ -863,7 +877,7 @@ export async function sendTestMailAction(_prev: ActionState, formData: FormData)
 export type BurnOpenResult =
   | { error: string }
   | { burned: true }
-  | { ok: true; body: string; title: string; genre: string; deadline: number; seconds: number };
+  | { ok: true; body: string; title: string; genre: string; deadline: number; seconds: number; image: string };
 
 /** 收件人拆封：首次拆封启动倒计时并返回正文（唯一一次服务端下发），窗口内可重读，到期即焚 */
 export async function openBurnLetterAction(letterId: string): Promise<BurnOpenResult> {
@@ -897,6 +911,8 @@ export async function openBurnLetterAction(letterId: string): Promise<BurnOpenRe
     genre: String(l.genre),
     deadline: burnedAt,
     seconds: Number(l.burn_seconds),
+    // 焚信也可能随信附一张照片：只在倒计时窗口内下发一次，到期 wipeBurn 会一并抹除
+    image: String(l.image ?? ""),
   };
 }
 

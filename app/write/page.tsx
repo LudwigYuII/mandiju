@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { db, waitDb } from "@/lib/db";
 import { gateOnboard } from "@/lib/onboard";
-import { availableStamps } from "@/lib/stamps";
+import { availableStamps, sentLetterCount } from "@/lib/stamps";
 import { getTopicById, monthKey } from "@/lib/topics";
 import { getPenpals } from "@/lib/friends";
 import WriteForm from "@/components/WriteForm";
@@ -38,7 +38,7 @@ export default async function WritePage({
     }
   }
 
-  const [me, penpals, stamps, drafts] = await Promise.all([
+  const [me, penpals, stamps, drafts, sent] = await Promise.all([
     db.execute({ sql: "SELECT * FROM users WHERE id=?", args: [sess.uid] }),
     getPenpals(sess.uid),
     availableStamps(sess.uid),
@@ -46,6 +46,7 @@ export default async function WritePage({
       sql: "SELECT * FROM drafts WHERE user_id=? ORDER BY updated_at DESC LIMIT 20",
       args: [sess.uid],
     }),
+    sentLetterCount(sess.uid),
   ]);
   const meRow = me.rows[0] as any;
 
@@ -68,6 +69,7 @@ export default async function WritePage({
           seasonal: s.seasonal ?? "",
         }))}
         coins={Number(meRow.coins ?? 0)}
+        sent={sent}
         topic={topic}
         reply={reply}
         to={to ?? ""}

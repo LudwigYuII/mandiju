@@ -5,10 +5,23 @@ import { sendPushToUser } from "./push";
 
 export type MailResult = { ok: boolean; error?: string };
 
+/** 邮件通道是否已配置（只在服务端用；不要把 key 本身传给客户端） */
+export function mailConfigured(): boolean {
+  const key = process.env.RESEND_API_KEY;
+  return typeof key === "string" && key.trim().length > 0;
+}
+
+/** 发件人地址是否自定义（未配置 MAIL_FROM 时用默认 letters@ludwig.uno） */
+export function mailFromConfigured(): boolean {
+  const from = process.env.MAIL_FROM;
+  return typeof from === "string" && from.trim().length > 0;
+}
+
 export async function sendMail(to: string, subject: string, text: string): Promise<MailResult> {
   const key = process.env.RESEND_API_KEY;
-  if (!key) {
-    console.log(`[MAIL] to=${to} | ${subject} | ${text}`);
+  if (!mailConfigured()) {
+    // 无 key：静默降级为日志，绝不抛错影响主流程
+    console.log(`[MAIL] 未配置 RESEND_API_KEY，跳过发送（仅日志）to=${to} | ${subject} | ${text}`);
     return { ok: false, error: "未配置 RESEND_API_KEY（当前降级为控制台日志）" };
   }
   try {
@@ -107,5 +120,45 @@ export async function sweepDelivered() {
       sql: `UPDATE letters SET notified = 1 WHERE deliver_at <= ? AND notified = 0 AND recipient_id IS NOT NULL`,
       args: [Date.now()],
     });
+  }
+}
+
+/**
+ * 回信 / 批注通知邮件：有人在你的信下留批注时，给信件作者发一封邮件。
+ *
+ * 约定与其它邮件一致：
+ *   · 没有 RESEND_API_KEY 时静默跳过（只留一行日志）；
+ *   · 查邮箱 / 发信的任何异常都只打日志，绝不影响批注本身与页面跳转。
+ *
+ * 接入点（lib/actions.ts → addReplyAction，在 notify(authorId, "reply", ...) 之后补一行）：
+ *   await sendReplyNoticeEmail({
+ *     authorId, letterId,
+ *     letterTitle: String((l.rows[0] as any)?.title ?? ""),
+ *     replierPen: sess.pen, replyBody: body,
+ *   });
+ */
+export async function sendReplyNoticeEmail(opts: {
+  authorId: string;
+  letterId: string;
+  letterTitle: string;
+  replierPen: string;
+  replyBody: string;
+}): Promise<void> {
+  if (!mailConfigured()) return;
+  try {
+    const r = await db.execute({
+      sql: "SELECT email FROM users WHERE id=?",
+      args: [opts.authorId],
+    });
+    const email = String((r.rows[0] as { email?: unknown } | undefined)?.email ?? "");
+    if (!email) return;
+    const excerpt = opts.replyBody.length > 300 ? `${opts.replyBody.slice(0, 300)}…` : opts.replyBody;
+    await sendMail(
+      email,
+      `慢递局 · ${opts.replierPen} 在《${opts.letterTitle}》下留了批注`,
+      `${opts.replierPen} 在《${opts.letterTitle}》下批注：\n\n${excerpt}\n\n回局里看看：https://ludwig.uno/letter/${opts.letterId}`
+    );
+  } catch (e) {
+    console.error("[MAIL] 批注通知邮件失败（不影响批注）：", e);
   }
 }

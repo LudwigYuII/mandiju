@@ -3,9 +3,10 @@ import { redirect } from "next/navigation";
 import manifest from "@/data/manifest.json";
 import { db, waitDb } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { ownedStampIds } from "@/lib/stamps";
+import { ownedStampIds, sentLetterCount, applyAchievementGrants } from "@/lib/stamps";
 import Stamp from "@/components/Stamp";
 import Reveal from "@/components/Reveal";
+import AchievementProgress from "@/components/AchievementProgress";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,9 @@ export default async function StampsPage() {
   await waitDb();
   const sess = await getSession();
   if (!sess) redirect("/login");
-  const owned = await ownedStampIds(sess.uid);
+  const [owned, sent] = await Promise.all([ownedStampIds(sess.uid), sentLetterCount(sess.uid)]);
+  // 兜底补发成就通知（幂等）：正常由发信动作触发，旧账号首次访问也在此补齐
+  await applyAchievementGrants(sess.uid, sent);
 
   const groups: { cat: string; items: any[] }[] = [];
   for (const s of manifest.stamps as any[]) {
@@ -42,6 +45,10 @@ export default async function StampsPage() {
           已收集 {owned.size} / {(manifest.stamps as any[]).length} 枚
         </span>
       </div>
+
+      <Reveal delay={0}>
+        <AchievementProgress sent={sent} />
+      </Reveal>
 
       {groups.map((g, gi) => (
         <Reveal key={g.cat} delay={gi * 70}>
@@ -71,7 +78,9 @@ export default async function StampsPage() {
       ))}
 
       <p className="text-center text-xs text-ink-soft">
-        发信满 10/50/100 封、特殊天气写信、生日当天写信，都会解锁纪念邮票。
+        发信满 10/50/100 封、特殊天气写信、生日当天写信，都会解锁纪念邮票；
+        <br />
+        寄信里程碑还会解锁新的信纸与火漆封蜡，寄得越远，笺色越丰。
         <br />
         <Link href="/write" className="text-vermilion">
           去写信 →

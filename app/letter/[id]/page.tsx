@@ -42,6 +42,13 @@ export default async function LetterPage({ params }: { params: Promise<{ id: str
   const status = statusOf(Number(l.deliver_at));
   const isCapsule = String(l.postage) === "capsule";
   const isBurn = Number(l.burn_seconds ?? 0) > 0;
+  const isPostcard = String(l.genre) === "postcard";
+  // 贴在信纸上的照片：由信件 id 算一个稳定的轻微倾斜（-1.5°～1.5°），同一封信每次打开角度一致
+  const photoTilt = (() => {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 1000;
+    return (h / 1000) * 3 - 1.5;
+  })();
 
   if (l.recipient_id && !isParty) notFound(); // 私信只对双方可见
   if (status === "in_transit" && !isParty) notFound(); // 路上的信不对外
@@ -262,7 +269,7 @@ export default async function LetterPage({ params }: { params: Promise<{ id: str
           </p>
         )}
 
-        {l.image && (
+        {l.image && isPostcard && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={imgUrl(String(l.image))}
@@ -282,6 +289,24 @@ export default async function LetterPage({ params }: { params: Promise<{ id: str
         >
           {String(l.body)}
         </div>
+
+        {/* 普通信的照片：像一张贴在信纸上的相片（白边、轻微倾斜、柔和投影） */}
+        {!isPostcard && l.image && !burned && (
+          <figure className="mt-7 flex justify-center">
+            <div
+              className="max-w-[86%] border-[6px] border-white bg-white shadow-[0_12px_28px_-10px_rgba(28,23,18,0.5)] sm:max-w-[420px]"
+              style={{ transform: `rotate(${photoTilt.toFixed(2)}deg)` }}
+            >
+              <img
+                src={imgUrl(String(l.image))}
+                alt={`${String(l.title)} 随信附上的照片`}
+                loading="lazy"
+                decoding="async"
+                className="block h-auto max-h-[420px] w-auto max-w-full object-contain"
+              />
+            </div>
+          </figure>
+        )}
 
         {/* 落款 */}
         <div

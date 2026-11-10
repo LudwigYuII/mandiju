@@ -21,6 +21,14 @@ import Seal, {
   type SealPattern,
 } from "./Seal";
 import { paperKindOf, paperClass, type PaperKind } from "./paper";
+import {
+  unlockText,
+  unlockedFor,
+  nextMilestone,
+  PATTERN_LABEL,
+  TONE_LABEL,
+  PAPER_LABEL,
+} from "@/lib/achievements";
 
 type PenPal = { pen: string; avatarId: string; bgId: string; via?: "friend" | "replied" };
 type StampOpt = { id: string; name: string; file: string; seasonal?: string };
@@ -105,6 +113,7 @@ export default function WriteForm({
   reply,
   to,
   drafts,
+  sent = 0,
 }: {
   pen: string;
   mySeal: string;
@@ -115,6 +124,7 @@ export default function WriteForm({
   reply?: { id: string; title: string; authorPen: string } | null;
   to?: string;
   drafts: Draft[];
+  sent?: number;
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(createLetterAction, {});
   const [, startTransition] = useTransition();
@@ -146,6 +156,17 @@ export default function WriteForm({
   const [saving, setSaving] = useState(false);
   const [draftMsg, setDraftMsg] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // 集邮册成就解锁：已寄封数决定可选的信纸 / 封蜡纹样 / 蜡色
+  const sentN = Math.max(0, Math.floor(Number(sent) || 0));
+  const unlocked = unlockedFor(sentN);
+  const nextMile = nextMilestone(sentN);
+  const unlockHint = nextMile
+    ? `已寄 ${sentN} 封 · 再寄 ${nextMile.sent - sentN} 封解锁「${nextMile.label}」：${unlockText(nextMile)}`
+    : `已寄 ${sentN} 封 · 样式与封蜡已全部解锁`;
+  const toneLocked = (id: LetterSealTone) => !unlocked.tones.has(id) && sealColor !== id;
+  const patternLocked = (id: SealPattern) => !unlocked.patterns.has(id) && sealPattern !== id;
+  const paperLocked = (id: PaperKind) => !unlocked.papers.has(id) && paper !== id;
 
   const isCapsule = recipient === "__future__";
   const isPostcard = genre === "postcard";
@@ -252,7 +273,12 @@ export default function WriteForm({
   };
 
   const submitDisabled =
-    pending || stamping || !city.trim() || (!isCapsule && coins < cost) || (isCapsule && !capsuleDate);
+    pending ||
+    stamping ||
+    uploading ||
+    !city.trim() ||
+    (!isCapsule && coins < cost) ||
+    (isCapsule && !capsuleDate);
 
   return (
     <div className="space-y-6">
@@ -313,6 +339,18 @@ export default function WriteForm({
         <input type="hidden" name="paper" value={isPostcard ? "plain" : paper} />
         <input type="hidden" name="vertical" value={isPostcard ? "0" : vertical ? "1" : "0"} />
         {topic && <input type="hidden" name="topicId" value={topic.id} />}
+        {/* 选图入口统一放这里：明信片与普通信的照片都复用它 */}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.currentTarget.value = "";
+            if (f) pickImage(f);
+          }}
+        />
 
         {topic && (
           <div className="card flex items-center gap-2 !border-vermilion/40 bg-vermilion/5 p-3.5">
@@ -399,7 +437,13 @@ export default function WriteForm({
               <div className="flex items-center gap-3">
                 {imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={imgUrl(imageUrl)} alt="明信片" className="h-24 w-32 rounded-xl object-cover" />
+                  <img
+                    src={imgUrl(imageUrl)}
+                    alt="明信片"
+                    loading="lazy"
+                    decoding="async"
+                    className="h-24 w-32 rounded-xl object-cover"
+                  />
                 ) : (
                   <div className="flex h-24 w-32 items-center justify-center rounded-xl bg-paper2/50 text-xs text-ink-soft">
                     还没有图
@@ -414,16 +458,6 @@ export default function WriteForm({
                   >
                     {uploading ? "上传中…" : imageUrl ? "换一张" : "选一张图"}
                   </button>
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) pickImage(f);
-                    }}
-                  />
                   {uploadErr && <p className="mt-1 text-xs text-vermilion">{uploadErr}</p>}
                 </div>
               </div>
@@ -461,6 +495,73 @@ export default function WriteForm({
             </>
           )}
         </section>
+
+        {/* 照片（非明信片可选） */}
+        {!isPostcard && (
+          <section>
+            <h3 className="mb-2.5 flex items-center gap-2 text-sm font-semibold">
+              照片
+              <span className="text-[11px] font-normal text-ink-soft">可选</span>
+            </h3>
+            <div
+              className={`card flex flex-wrap items-center gap-3 p-3.5 ${
+                imageUrl ? "" : "!border-dashed"
+              }`}
+            >
+              {imageUrl ? (
+                <>
+                  <div className="shrink-0 border-4 border-white bg-white shadow-md">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={imgUrl(imageUrl)}
+                      alt="随信照片预览"
+                      loading="lazy"
+                      decoding="async"
+                      className="h-20 w-24 object-cover"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm">已附一张照片</p>
+                    <p className="mt-0.5 text-xs text-ink-soft">会像相片一样贴在信纸上，随信一同寄出</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => fileRef.current?.click()}
+                        className="btn-ghost !px-3 !py-1 !text-xs"
+                        disabled={uploading}
+                      >
+                        {uploading ? "上传中…" : "换一张"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setImageUrl("")}
+                        className="btn-ghost !px-3 !py-1 !text-xs"
+                        disabled={uploading}
+                      >
+                        取下
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    className="btn-ghost !border-dashed !px-4 !py-2 !text-sm"
+                    disabled={uploading}
+                  >
+                    {uploading ? "上传中…" : "📎 附一张照片"}
+                  </button>
+                  <p className="min-w-0 flex-1 text-xs text-ink-soft">
+                    像夹在信纸里的一张相片，不附也可以。
+                  </p>
+                </>
+              )}
+              {uploadErr && <p className="w-full text-xs text-vermilion">{uploadErr}</p>}
+            </div>
+          </section>
+        )}
 
         {/* 邮资 / 时光胶囊 */}
         <section>
@@ -564,12 +665,19 @@ export default function WriteForm({
                       key={c.id}
                       type="button"
                       onClick={() => setSealColor(c.id)}
-                      title={c.label}
+                      disabled={toneLocked(c.id)}
+                      title={
+                        toneLocked(c.id)
+                          ? `${TONE_LABEL[c.id]}：${nextMile ? `寄到第 ${nextMile.sent} 封解锁` : "尚未解锁"}`
+                          : c.label
+                      }
                       aria-label={c.label}
                       className={`h-7 w-7 rounded-full transition ${
                         sealColor === c.id
                           ? "ring-2 ring-vermilion ring-offset-2 ring-offset-paper"
-                          : "opacity-80 hover:scale-110 hover:opacity-100"
+                          : toneLocked(c.id)
+                            ? "cursor-not-allowed opacity-25 grayscale"
+                            : "opacity-80 hover:scale-110 hover:opacity-100"
                       }`}
                       style={{ background: c.swatch }}
                     />
@@ -584,17 +692,32 @@ export default function WriteForm({
                       key={p.id}
                       type="button"
                       onClick={() => setSealPattern(p.id)}
+                      disabled={patternLocked(p.id)}
+                      title={
+                        patternLocked(p.id)
+                          ? `${PATTERN_LABEL[p.id]}：${nextMile ? `寄到第 ${nextMile.sent} 封解锁` : "尚未解锁"}`
+                          : p.label
+                      }
                       className={`btn-ghost !px-3 !py-1.5 !text-xs ${
                         sealPattern === p.id ? "!border-vermilion !text-vermilion" : ""
-                      }`}
+                      } ${patternLocked(p.id) ? "!opacity-40 !cursor-not-allowed" : ""}`}
                     >
                       {p.label}
+                      {patternLocked(p.id) && <span className="ml-1 text-[10px]">🔒</span>}
                     </button>
                   ))}
                 </div>
               </div>
             </div>
           </div>
+          <p className="mt-2 text-xs text-ink-soft">
+            {unlockHint}
+            {nextMile && (
+              <Link href="/stamps" className="ml-1 text-vermilion underline-offset-2 hover:underline">
+                去邮票册看看
+              </Link>
+            )}
+          </p>
         </section>
 
         {/* 邮票 */}
@@ -674,23 +797,40 @@ export default function WriteForm({
                   key={p.id}
                   type="button"
                   onClick={() => setPaper(p.id)}
+                  disabled={paperLocked(p.id)}
+                  title={
+                    paperLocked(p.id)
+                      ? `${PAPER_LABEL[p.id]}：${nextMile ? `寄到第 ${nextMile.sent} 封解锁` : "尚未解锁"}`
+                      : p.label
+                  }
                   className={`card overflow-hidden !rounded-2xl p-1.5 transition ${
                     paper === p.id ? "!border-vermilion/60 shadow-md" : ""
-                  }`}
+                  } ${paperLocked(p.id) ? "!opacity-45 !cursor-not-allowed" : ""}`}
                 >
                   <div
                     className={`${paperClass(p.id)} flex h-16 items-center justify-center rounded-xl border text-[11px] ${
                       p.id === "night"
                         ? "border-white/10 text-[#ddd6c6]"
                         : "border-black/5 text-ink-soft dark:border-white/10"
-                    }`}
+                    } ${paperLocked(p.id) ? "grayscale" : ""}`}
                   >
                     {p.label}
                   </div>
-                  <div className="mt-1.5 pb-0.5 text-xs font-medium">{p.label}</div>
+                  <div className="mt-1.5 pb-0.5 text-xs font-medium">
+                    {p.label}
+                    {paperLocked(p.id) && " 🔒"}
+                  </div>
                 </button>
               ))}
             </div>
+            <p className="mt-2 text-xs text-ink-soft">
+              {unlockHint}
+              {nextMile && (
+                <Link href="/stamps" className="ml-1 text-vermilion underline-offset-2 hover:underline">
+                  去邮票册看看
+                </Link>
+              )}
+            </p>
             <div className="mt-3.5 flex items-center justify-between gap-3">
               <span className="text-sm">
                 竖排

@@ -106,6 +106,12 @@ async function init() {
       source TEXT,
       PRIMARY KEY (user_id, stamp_id)
     )`,
+    `CREATE TABLE IF NOT EXISTS user_achievements (
+      user_id TEXT NOT NULL,
+      milestone INTEGER NOT NULL,
+      unlocked_at INTEGER NOT NULL,
+      PRIMARY KEY (user_id, milestone)
+    )`,
     `CREATE TABLE IF NOT EXISTS notes (
       id TEXT PRIMARY KEY,
       author_id TEXT NOT NULL,

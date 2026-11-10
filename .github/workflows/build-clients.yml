@@ -283,13 +283,27 @@ jobs:
         working-directory: desktop
         run: pnpm exec electron-builder --win
 
+      # 注意：electron-builder 25 会忽略 nsis/portable 里的 artifactName 模板，
+      # 实际产物是 dist\mandiju-setup.exe / dist\mandiju-portable.exe（不带版本号）。
+      # 这里把产物统一改名为带版本号的形式，避免上传/发布用通配符匹配不到。
+      - name: Rename installers with version
+        shell: pwsh
+        run: |
+          $dir = "desktop/dist"
+          Get-ChildItem $dir -Filter *.exe | Select-Object Name,Length | Format-Table -AutoSize | Out-String | Write-Host
+          foreach ($pair in @(@("mandiju-setup", "setup"), @("mandiju-portable", "portable"))) {
+            $src = Join-Path $dir "$($pair[0]).exe"
+            if (Test-Path $src) {
+              Move-Item -Force $src (Join-Path $dir "mandiju-$($pair[1])-0.1.0.exe")
+            }
+          }
+          Get-ChildItem $dir -Filter *.exe | Select-Object Name,Length | Format-Table -AutoSize | Out-String | Write-Host
+
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
           name: mandiju-windows
-          path: |
-            desktop/dist/mandiju-setup-*.exe
-            desktop/dist/mandiju-portable-*.exe
+          path: desktop/dist/*.exe
           if-no-files-found: error
 
   release:

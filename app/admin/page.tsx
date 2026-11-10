@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { db, waitDb } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { fmtTime } from "@/lib/delivery";
+import { getHealthReport } from "@/lib/health";
 import {
   adminDeleteLetterAction,
   adminToggleBanAction,
@@ -23,7 +24,7 @@ export default async function AdminPage() {
   const me = (await db.execute({ sql: "SELECT role, email FROM users WHERE id=?", args: [sess.uid] })).rows[0] as any;
   if (String(me?.role) !== "admin") redirect("/");
 
-  const [users, stats, letters, announcements, invites, pool] = await Promise.all([
+  const [users, stats, letters, announcements, invites, pool, health] = await Promise.all([
     db.execute("SELECT id, pen_name, email, role, banned, letters_sent, coins, created_at FROM users ORDER BY created_at ASC"),
     Promise.all([
       db.execute("SELECT COUNT(*) AS n FROM users"),
@@ -41,6 +42,7 @@ export default async function AdminPage() {
                 FROM invites i LEFT JOIN users uu ON uu.id = i.used_by
                 ORDER BY i.created_at DESC LIMIT 50`),
     db.execute("SELECT COUNT(*) AS n FROM topic_pool WHERE status='pending'"),
+    getHealthReport(),
   ]);
 
   const stat = {
@@ -62,6 +64,80 @@ export default async function AdminPage() {
     { label: "待用邀请码", value: stat.invites },
   ];
 
+  // 系统状态卡：数据来自 lib/health.ts（与 /api/health 同一份），只含布尔与计数
+  const cfg = health.config;
+  const counts = health.db.counts;
+  type Tone = "ok" | "warn" | "muted";
+  const TONE: Record<Tone, string> = {
+    ok: "bg-postblue/10 text-postblue",
+    warn: "bg-vermilion/15 text-vermilion",
+    muted: "border border-black/10 text-ink-soft dark:border-white/15",
+  };
+  const missingVapid = [!cfg.vapid.public && "public", !cfg.vapid.private && "private"]
+    .filter(Boolean)
+    .join(" / ");
+  const statusItems: { name: string; label: string; tone: Tone; detail: string }[] = [
+    {
+      name: "数据库",
+      label: health.db.ok ? "正常" : "异常",
+      tone: health.db.ok ? "ok" : "warn",
+      detail: health.db.ok
+        ? `${health.db.remote ? "远程 Turso" : "本地文件"} · 查询往返 ${health.db.ms ?? "?"}ms` +
+          (counts
+            ? ` · 局友 ${counts.users} 位 / 信件 ${counts.letters} 封 / 通知 ${counts.notifications} 条 / 推送订阅 ${counts.pushSubs} 个`
+            : "")
+        : "连接失败：核对 Vercel 上的 MDJ_DB / MDJ_DB_AUTH_TOKEN 与 Turso 控制台状态；详细错误见服务器日志。",
+    },
+    {
+      name: "邮件",
+      label: cfg.mail ? "已配置" : "未配置",
+      tone: cfg.mail ? "ok" : "warn",
+      detail: cfg.mail
+        ? `Resend 已就绪${cfg.mailFrom ? "" : "（未设 MAIL_FROM，发件人用默认 letters@ludwig.uno）"}；来信送达 / 找回密码 / 生日问候会发邮件。`
+        : "未配置：在 Vercel 环境变量加 RESEND_API_KEY 与 MAIL_FROM —— 申请步骤见下方「邮件通道」卡片；未配置时邮件只写日志，站内写信不受影响。",
+    },
+    {
+      name: "推送",
+      label: cfg.push ? "已配置" : "未配置",
+      tone: cfg.push ? "ok" : "warn",
+      detail: cfg.push
+        ? "VAPID 密钥已就绪，新信送达会发 Web Push。"
+        : `未配置：在 Vercel 加 MDJ_VAPID_PUBLIC / MDJ_VAPID_PRIVATE（缺 ${missingVapid || "两项"}），可用 npx web-push generate-vapid-keys 生成。`,
+    },
+    {
+      name: "对象存储",
+      label: cfg.r2 ? "已配置" : "未配置",
+      tone: cfg.r2 ? "ok" : "warn",
+      detail: cfg.r2
+        ? "Cloudflare R2 已就绪，头像与照片走对象存储。"
+        : "未配置：加 R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_BUCKET / R2_PUBLIC_URL；未配置时图片落本地磁盘，Vercel 上重启即丢。",
+    },
+    {
+      name: "站长密码",
+      label: cfg.adminPass ? "已配置" : "默认密码",
+      tone: cfg.adminPass ? "ok" : "warn",
+      detail: cfg.adminPass
+        ? "MDJ_ADMIN_PASS 已设置。"
+        : "未设置 MDJ_ADMIN_PASS，正在使用代码内置默认密码，请立刻在 Vercel 补上。",
+    },
+    {
+      name: "运维密钥",
+      label: cfg.secret && cfg.dbAuthToken ? "已配置" : "缺项",
+      tone: cfg.secret && cfg.dbAuthToken ? "ok" : "warn",
+      detail: `MDJ_SECRET ${cfg.secret ? "已设置" : "未设置（会话签名走开发默认值，务必配置）"} · MDJ_DB_AUTH_TOKEN ${
+        cfg.dbAuthToken ? "已设置" : "未设置"
+      }。`,
+    },
+    {
+      name: "定时任务",
+      label: health.cron.lastRunAt ? "已记录" : "未记录",
+      tone: "muted",
+      detail: `${health.cron.scheduleBeijing} 执行（vercel.json：${health.cron.schedule} UTC）· 最近一次执行：${
+        health.cron.lastRunAt ?? "未落库，无法回看"
+      }。${health.cron.note}`,
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -78,6 +154,46 @@ export default async function AdminPage() {
               <div className="mt-0.5 text-xs text-ink-soft">{c.label}</div>
             </div>
           ))}
+        </section>
+      </Reveal>
+
+      {/* 系统状态 */}
+      <Reveal delay={40}>
+        <section className="card glass p-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-sm font-semibold tracking-widest">系统状态</h2>
+            <span className={`text-xs ${health.ok ? "text-postblue" : "font-semibold text-vermilion"}`}>
+              {health.ok ? "运行正常" : "⚠ 存在异常，请检查"} · 采集于{" "}
+              {fmtTime(new Date(health.time).getTime())}
+            </span>
+          </div>
+          <ul className="mt-3 space-y-1.5">
+            {statusItems.map((it) => (
+              <li
+                key={it.name}
+                className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-black/5 px-3 py-2 text-sm dark:border-white/10"
+              >
+                <span className="w-14 shrink-0 text-ink-soft">{it.name}</span>
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] ${TONE[it.tone]}`}>
+                  {it.label}
+                </span>
+                <span className="min-w-0 flex-1 text-xs leading-relaxed text-ink-soft">{it.detail}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2.5 text-xs text-ink-soft">
+            同一份数据也见于{" "}
+            <a
+              href="/api/health"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-vermilion hover:underline"
+            >
+              /api/health
+            </a>
+            （无需登录，只含状态与计数，不含任何密钥值）
+            {health.build.commit ? ` · 当前部署版本 ${health.build.commit}` : ""}。
+          </p>
         </section>
       </Reveal>
 
@@ -255,10 +371,10 @@ export default async function AdminPage() {
         <section className="card glass p-5">
           <h2 className="text-sm font-semibold tracking-widest">邮件通道</h2>
           <p className="mt-1 text-xs text-ink-soft">
-            来信/胶囊/找回密码的邮件都走 Resend。填一个你自己的真实邮箱发一封自检信，
-            收到即说明通道正常；失败时这里会显示 Resend 返回的具体错误。
+            来信送达 / 时光胶囊解锁 / 找回密码验证码 / 生日问候的邮件都走 Resend。填一个你自己的真实邮箱发一封自检信，
+            收到即说明通道正常；失败时这里会显示 Resend 返回的具体错误（不含密钥）。
           </p>
-          <MailTest defaultTo={String(me?.email ?? "")} />
+          <MailTest defaultTo={String(me?.email ?? "")} configured={health.config.mail} />
         </section>
       </Reveal>
     </div>
