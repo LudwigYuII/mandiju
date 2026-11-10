@@ -252,7 +252,12 @@ async function init() {
   // 管理员种子
   const adminRow = await db.execute("SELECT id FROM users WHERE role='admin' LIMIT 1");
   if (adminRow.rows.length === 0) {
-    const pass = process.env.MDJ_ADMIN_PASS || "kaizhang-2026";
+    // 仓库公开：不写死默认口令。未配置 MDJ_ADMIN_PASS 时生成一次性随机口令，只在部署日志打印一次
+    const generated = `mdj-${crypto.randomUUID().slice(0, 8)}`;
+    const pass = process.env.MDJ_ADMIN_PASS || generated;
+    if (!process.env.MDJ_ADMIN_PASS) {
+      console.warn(`[慢递局] 未配置 MDJ_ADMIN_PASS，已生成一次性站长口令：${generated}（登录后请改密并配置该环境变量）`);
+    }
     const hash = await bcrypt.hash(pass, 10);
     await db.execute({
       sql: "INSERT INTO users(id, email, pen_name, password_hash, role, seal_text, coins, last_coin_at, created_at) VALUES(?,?,?,?,?,?,?,?,?)",
