@@ -66,7 +66,7 @@ export default async function StudyPage({
   const showCorrespondence =
     !!sess && !isMe && (rel === "friends" || exchanged);
 
-  const referrer = Number(u.show_referrer) ? (await db.execute({sql:"SELECT p.literary_name FROM invites i JOIN users p ON p.id=i.created_by WHERE i.used_by=? AND p.literary_name IS NOT NULL AND p.banned=0 LIMIT 1",args:[String(u.id)]})).rows[0] : null;
+  const referrer = Number(u.show_referrer) ? (await db.execute({sql:"SELECT p.literary_name FROM invites i JOIN users p ON p.id=i.created_by WHERE i.used_by=? AND p.literary_name IS NOT NULL AND p.banned=0 AND p.show_referrer=1 LIMIT 1",args:[String(u.id)]})).rows[0] : null;
   return (
     <div className="space-y-5">
       {Number(u.retreat_until)>Date.now() && <p className="card p-4 text-sm"><UiText text="闭关中，预计出关："/>{formatSiteTime(Number(u.retreat_until))}</p>}
