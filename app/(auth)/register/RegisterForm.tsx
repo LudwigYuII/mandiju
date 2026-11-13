@@ -1,4 +1,5 @@
 "use client";
+import { UiText, UiInput } from "@/components/UiText";
 
 import { useActionState, useState, useTransition } from "react";
 import Link from "next/link";
@@ -22,7 +23,7 @@ function EyeToggle({
       onClick={onToggle}
       className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink-soft"
     >
-      {shown ? "隐藏" : "显示"}
+      <UiText text={shown ? "隐藏" : "显示"} />
     </button>
   );
 }
@@ -34,7 +35,10 @@ export default function RegisterForm({
   avatars: Av[];
   backgrounds: Bg[];
 }) {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(registerAction, {});
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(
+    registerAction,
+    {},
+  );
   const [, startTransition] = useTransition();
   const [avatarId, setAvatarId] = useState(avatars[0]?.id ?? "C01");
   const [bgId, setBgId] = useState(backgrounds[0]?.id ?? "D01");
@@ -75,24 +79,37 @@ export default function RegisterForm({
 
   return (
     <form onSubmit={onSubmit} className="card glass space-y-5 p-6">
-      <h1 className="text-2xl font-semibold tracking-tight">加入慢递局</h1>
-      <input type="hidden" name="avatarId" value={avatarId} />
-      <input type="hidden" name="bgId" value={bgId} />
-      <input type="hidden" name="birthday" value={birthday ?? ""} />
+      <h1 className="text-2xl font-semibold tracking-tight">
+        <UiText text={"加入慢递局"} />
+      </h1>
+      <UiInput type="hidden" name="avatarId" value={avatarId} />
+      <UiInput type="hidden" name="bgId" value={bgId} />
+      <UiInput type="hidden" name="birthday" value={birthday ?? ""} />
 
       <label className="block">
-        <span className="mb-1.5 block text-sm font-semibold">邀请码</span>
-        <input name="code" className="input" placeholder="请输入邀请码" />
+        <span className="mb-1.5 block text-sm font-semibold">
+          <UiText text={"邀请码"} />
+        </span>
+        <UiInput name="code" className="input" placeholder="请输入邀请码" />
       </label>
 
       <label className="block">
-        <span className="mb-1.5 block text-sm font-semibold">邮箱</span>
-        <input name="email" type="email" className="input" placeholder="请输入邮箱" />
+        <span className="mb-1.5 block text-sm font-semibold">
+          <UiText text={"邮箱"} />
+        </span>
+        <UiInput
+          name="email"
+          type="email"
+          className="input"
+          placeholder="请输入邮箱"
+        />
       </label>
 
       <label className="block">
-        <span className="mb-1.5 block text-sm font-semibold">笔名</span>
-        <input
+        <span className="mb-1.5 block text-sm font-semibold">
+          <UiText text={"笔名"} />
+        </span>
+        <UiInput
           name="pen"
           className="input"
           placeholder="请输入笔名"
@@ -103,22 +120,26 @@ export default function RegisterForm({
       </label>
 
       <label className="block">
-        <span className="mb-1.5 block text-sm font-semibold">密码</span>
+        <span className="mb-1.5 block text-sm font-semibold">
+          <UiText text={"密码"} />
+        </span>
         <div className="relative">
-          <input
+          <UiInput
             name="password"
             type={showPw ? "text" : "password"}
             className="input pr-16"
-            placeholder="至少 6 位"
+            placeholder="至少12个字符"
           />
           <EyeToggle shown={showPw} onToggle={() => setShowPw(!showPw)} />
         </div>
       </label>
 
       <label className="block">
-        <span className="mb-1.5 block text-sm font-semibold">确认密码</span>
+        <span className="mb-1.5 block text-sm font-semibold">
+          <UiText text={"确认密码"} />
+        </span>
         <div className="relative">
-          <input
+          <UiInput
             name="password2"
             type={showPw2 ? "text" : "password"}
             className="input pr-16"
@@ -129,9 +150,11 @@ export default function RegisterForm({
       </label>
 
       <div>
-        <span className="mb-1.5 block text-sm font-semibold">私印</span>
+        <span className="mb-1.5 block text-sm font-semibold">
+          <UiText text={"私印"} />
+        </span>
         <div className="flex items-center gap-3">
-          <input
+          <UiInput
             name="seal"
             className="input w-28 text-center !text-lg"
             placeholder="印"
@@ -145,17 +168,21 @@ export default function RegisterForm({
           <Seal char={seal || "印"} size={52} />
         </div>
         <p className="mt-1.5 text-xs text-ink-soft">
-          一至两个汉字，将盖在你寄出的每封信上
+          <UiText text={"一至两个汉字，将盖在你寄出的每封信上"} />
         </p>
       </div>
 
       <div>
-        <span className="mb-1.5 block text-sm font-semibold">生日</span>
+        <span className="mb-1.5 block text-sm font-semibold">
+          <UiText text={"生日"} />
+        </span>
         <BirthdayPicker value={birthday} onChange={setBirthday} />
       </div>
 
       <div>
-        <span className="mb-2 block text-sm font-semibold">选择小人</span>
+        <span className="mb-2 block text-sm font-semibold">
+          <UiText text={"选择小人"} />
+        </span>
         <div className="grid grid-cols-6 gap-1.5">
           {avatars.map((a) => (
             <button
@@ -179,7 +206,9 @@ export default function RegisterForm({
       </div>
 
       <div>
-        <span className="mb-2 block text-sm font-semibold">选择背景</span>
+        <span className="mb-2 block text-sm font-semibold">
+          <UiText text={"选择背景"} />
+        </span>
         <div className="grid grid-cols-4 gap-1.5">
           {backgrounds.map((b) => (
             <button
@@ -219,7 +248,7 @@ export default function RegisterForm({
           />
         </div>
         <p className="text-xs text-ink-soft">
-          头像预览
+          <UiText text={"头像预览"} />
           <br />
           {selAv.name}
           <br />
@@ -228,15 +257,19 @@ export default function RegisterForm({
       </div>
 
       {clientErr && <p className="text-sm text-vermilion">{clientErr}</p>}
-      {state?.error && <p className="text-sm text-vermilion">{state.error}</p>}
+      {state?.error && (
+        <p className="text-sm text-vermilion">
+          <UiText text={state.error} />
+        </p>
+      )}
 
       <button type="submit" className="btn w-full" disabled={pending}>
-        {pending ? "…" : "领取笔名与私印"}
+        <UiText text={pending ? "…" : "领取笔名与私印"} />
       </button>
       <p className="text-center text-sm text-ink-soft">
-        已经是局里的人了？
+        <UiText text={"已经是局里的人了？"} />
         <Link href="/login" className="text-vermilion">
-          登录
+          <UiText text={"登录"} />
         </Link>
       </p>
     </form>

@@ -10,11 +10,14 @@ import { expireBurnLetters } from "@/lib/burn-db";
 export async function GET(req: NextRequest) {
   const ua = req.headers.get("user-agent") ?? "";
   const auth = req.headers.get("authorization");
-  const secret = process.env.MDJ_SECRET;
+  const secret = process.env.CRON_SECRET;
   const isVercelCron = ua === "vercel-cron/1.0";
   const authOk = !!secret && auth === `Bearer ${secret}`;
-  if (!isVercelCron && !authOk) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  if (!authOk) {
+    return NextResponse.json(
+      { ok: false, error: "unauthorized" },
+      { status: 401 },
+    );
   }
   await waitDb();
   try {
@@ -23,6 +26,9 @@ export async function GET(req: NextRequest) {
     await expireBurnLetters();
     return NextResponse.json({ ok: true, at: Date.now() });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "delivery_task_failed" },
+      { status: 500 },
+    );
   }
 }

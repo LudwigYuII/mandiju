@@ -22,6 +22,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { createClient } from "@libsql/client";
 
+process.umask(0o077);
+
 const TOOL_VERSION = "1.0.0";
 const startedAt = Date.now();
 
@@ -36,7 +38,11 @@ if (!rawUrl) fail("缺少环境变量 MDJ_DB（应为 Turso 的 libsql://... 地
 const authToken = (process.env.MDJ_DB_AUTH_TOKEN || "").trim() || undefined;
 
 const isRemote = /^(libsql|https?|wss?):\/\//.test(rawUrl);
-const url = isRemote ? rawUrl : rawUrl.startsWith("file:") ? rawUrl : `file:${rawUrl}`;
+const url = isRemote
+  ? rawUrl
+  : rawUrl.startsWith("file:")
+    ? rawUrl
+    : `file:${rawUrl}`;
 
 function sourceLabel() {
   if (!isRemote) return "本地文件库（离线导出）";
@@ -48,13 +54,17 @@ function sourceLabel() {
 }
 
 if (isRemote && !authToken) {
-  fail("远程库需要 MDJ_DB_AUTH_TOKEN（Turso 数据库令牌，turso db tokens create <db> 生成）");
+  fail(
+    "远程库需要 MDJ_DB_AUTH_TOKEN（Turso 数据库令牌，turso db tokens create <db> 生成）",
+  );
 }
 
 // ---------------- 输出目录 ----------------
 // 时间戳用 UTC，避免 CI runner 时区不一致：2026-11-10-04-23-10
 const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
-const outRoot = process.argv[2] ? path.resolve(process.argv[2]) : path.resolve("backups");
+const outRoot = process.argv[2]
+  ? path.resolve(process.argv[2])
+  : path.resolve("backups");
 const outDir = path.join(outRoot, stamp);
 const tablesDir = path.join(outDir, "tables");
 fs.mkdirSync(tablesDir, { recursive: true });
@@ -64,13 +74,19 @@ fs.mkdirSync(tablesDir, { recursive: true });
 function toJsonSafe(v) {
   if (typeof v === "bigint") {
     // 时间戳、计数都在 Number 安全范围内；超出时转字符串保真
-    return v <= Number.MAX_SAFE_INTEGER && v >= Number.MIN_SAFE_INTEGER ? Number(v) : v.toString();
+    return v <= Number.MAX_SAFE_INTEGER && v >= Number.MIN_SAFE_INTEGER
+      ? Number(v)
+      : v.toString();
   }
   if (v instanceof ArrayBuffer) {
     return { __blob_base64: Buffer.from(v).toString("base64") };
   }
   if (ArrayBuffer.isView(v)) {
-    return { __blob_base64: Buffer.from(v.buffer, v.byteOffset, v.byteLength).toString("base64") };
+    return {
+      __blob_base64: Buffer.from(v.buffer, v.byteOffset, v.byteLength).toString(
+        "base64",
+      ),
+    };
   }
   return v;
 }
@@ -87,14 +103,15 @@ function sqlIdent(name) {
 // ---------------- 主流程 ----------------
 async function main() {
   const db = createClient({ url, authToken });
+  const snapshot = await db.transaction("read");
   try {
     // 1) 读结构：表与索引的 DDL
-    const master = await db.execute(
+    const master = await snapshot.execute(
       `SELECT name, type, sql FROM sqlite_master
         WHERE type IN ('table','index')
           AND name NOT LIKE 'sqlite_%'
           AND name NOT LIKE '__libsql%'
-        ORDER BY CASE type WHEN 'table' THEN 0 ELSE 1 END, name`
+        ORDER BY CASE type WHEN 'table' THEN 0 ELSE 1 END, name`,
     );
     const tables = [];
     const indexSqls = [];
@@ -106,14 +123,16 @@ async function main() {
       else if (sql) indexSqls.push(sql);
     }
     if (tables.length === 0) {
-      fail("数据库里没有任何业务表 —— 请确认 MDJ_DB 指向的是慢递局的线上库，而不是空库");
+      fail(
+        "数据库里没有任何业务表 —— 请确认 MDJ_DB 指向的是慢递局的线上库，而不是空库",
+      );
     }
 
     // 2) 导出每张表的全量数据（小站数据量小，单次 SELECT 更简单也更一致）
     const tableStats = {};
     let totalRows = 0;
     for (const t of tables) {
-      const res = await db.execute(`SELECT * FROM ${sqlIdent(t.name)}`);
+      const res = await snapshot.execute(`SELECT * FROM ${sqlIdent(t.name)}`);
       const columns = res.columns.map((c) => String(c));
       const rows = res.rows.map((row) => {
         const obj = {};
@@ -147,10 +166,17 @@ async function main() {
       `-- 恢复顺序：先在空库里执行本文件建表，再按 tables/*.json 逐表导入数据。`,
       ``,
     ].join("\n");
-    const schemaBody = [...tables.map((t) => t.sql).filter(Boolean), ...indexSqls]
+    const schemaBody = [
+      ...tables.map((t) => t.sql).filter(Boolean),
+      ...indexSqls,
+    ]
       .map((s) => (s.trim().endsWith(";") ? s.trim() : `${s.trim()};`))
       .join("\n\n");
-    fs.writeFileSync(path.join(outDir, "schema.sql"), `${schemaHeader}\n${schemaBody}\n`, "utf8");
+    fs.writeFileSync(
+      path.join(outDir, "schema.sql"),
+      `${schemaHeader}\n${schemaBody}\n`,
+      "utf8",
+    );
 
     // 4) 清单
     const manifest = {
@@ -167,7 +193,11 @@ async function main() {
       // 备份不含任何密钥：数据库令牌只用于连接，绝不写进产物
       secretsIncluded: false,
     };
-    fs.writeFileSync(path.join(outDir, "manifest.json"), JSON.stringify(manifest, null, 2), "utf8");
+    fs.writeFileSync(
+      path.join(outDir, "manifest.json"),
+      JSON.stringify(manifest, null, 2),
+      "utf8",
+    );
 
     // 5) 恢复说明
     const readme = [
@@ -196,7 +226,9 @@ async function main() {
     // 6) 自检：users 表必须有数据（空库或连错库时最典型的信号）
     const userRows = Number(tableStats.users?.rowCount ?? 0);
     if (userRows === 0) {
-      fail(`users 表为空（0 行）—— 备份可疑，确认 MDJ_DB 指向线上库。产物目录：${outDir}`);
+      fail(
+        `users 表为空（0 行）—— 备份可疑，确认 MDJ_DB 指向线上库。产物目录：${outDir}`,
+      );
     }
 
     // 7) 摘要
@@ -208,9 +240,14 @@ async function main() {
     console.log(
       `\n✓ 数据库快照已导出：${path.relative(process.cwd(), outDir) || outDir}\n` +
         `  来源：${sourceLabel()} · ${tables.length} 张表 · 共 ${totalRows} 行 · 用时 ${manifest.durationMs}ms\n` +
-        `  行数最多的表：${top}\n`
+        `  行数最多的表：${top}\n`,
     );
   } finally {
+    try {
+      await snapshot.rollback();
+    } finally {
+      snapshot.close();
+    }
     // libsql 客户端会持有连接，显式关闭避免 CI 进程挂住
     try {
       await db.close();

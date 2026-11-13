@@ -15,7 +15,10 @@ const NO_STORE = "no-store, no-cache, must-revalidate, max-age=0";
 function publicReport(report: Awaited<ReturnType<typeof getHealthReport>>) {
   const c = report.config;
   return {
-    ...report,
+    ok: report.ok,
+    service: report.service,
+    time: report.time,
+    db: { ok: report.db.ok, ms: report.db.ms },
     config: {
       mail: c.mail,
       mailFrom: c.mailFrom,

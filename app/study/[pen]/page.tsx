@@ -1,3 +1,5 @@
+import { UiText } from "@/components/UiText";
+
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db, waitDb } from "@/lib/db";
@@ -10,13 +12,20 @@ import { avatarFile, bgFile, imgUrl } from "@/lib/assets";
 
 export const dynamic = "force-dynamic";
 
-export default async function StudyPage({ params }: { params: Promise<{ pen: string }> }) {
+export default async function StudyPage({
+  params,
+}: {
+  params: Promise<{ pen: string }>;
+}) {
   await waitDb();
   const { pen } = await params;
   const sess = await getSession();
 
   const u = (
-    await db.execute({ sql: "SELECT * FROM users WHERE pen_name=?", args: [decodeURIComponent(pen)] })
+    await db.execute({
+      sql: "SELECT * FROM users WHERE pen_name=?",
+      args: [decodeURIComponent(pen)],
+    })
   ).rows[0] as any;
   if (!u) notFound();
 
@@ -26,13 +35,14 @@ export default async function StudyPage({ params }: { params: Promise<{ pen: str
         (SELECT COUNT(*) FROM likes k WHERE k.letter_id = l.id) AS likes,
         (SELECT COUNT(*) FROM replies r WHERE r.letter_id = l.id) AS replies
       FROM letters l JOIN users u ON u.id = l.author_id
-      WHERE l.author_id = ? AND l.recipient_id IS NULL AND l.deliver_at <= ?
+      WHERE l.author_id = ? AND l.recipient_id IS NULL AND l.moderation_hidden=0 AND l.deliver_at <= ?
       ORDER BY l.deliver_at DESC LIMIT 50`,
     args: [String(u.id), Date.now()],
   });
 
   const isMe = !!sess && String(u.id) === sess.uid;
-  const rel = !isMe && sess ? await friendshipBetween(sess.uid, String(u.id)) : "none";
+  const rel =
+    !isMe && sess ? await friendshipBetween(sess.uid, String(u.id)) : "none";
   const avatarSrc = String(u.avatar_id).startsWith("upload:")
     ? imgUrl(String(u.avatar_id).slice(7))
     : avatarFile(String(u.avatar_id));
@@ -52,7 +62,8 @@ export default async function StudyPage({ params }: { params: Promise<{ pen: str
     });
     exchanged = c.rows.length > 0;
   }
-  const showCorrespondence = !!sess && !isMe && (rel === "friends" || exchanged);
+  const showCorrespondence =
+    !!sess && !isMe && (rel === "friends" || exchanged);
 
   return (
     <div className="space-y-5">
@@ -80,24 +91,40 @@ export default async function StudyPage({ params }: { params: Promise<{ pen: str
         <div className="relative flex items-end justify-between bg-black/25 p-5 pt-16 backdrop-blur-[2px]">
           <div className="flex items-end gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={avatarSrc} alt="" loading="lazy" decoding="async" className="h-24" />
+            <img
+              src={avatarSrc}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              className="h-24"
+            />
             <div className="pb-1 text-white">
-              <div className="text-lg font-bold drop-shadow">{String(u.pen_name)} 的书房</div>
-              <div className="text-xs opacity-90">寄出 {Number(u.letters_sent)} 封信</div>
+              <div className="text-lg font-bold drop-shadow">
+                {String(u.pen_name)}
+                <UiText text={"的书房"} />
+              </div>
             </div>
           </div>
           <div className="flex flex-col items-end gap-2 pb-1">
-            <Seal char={String(u.seal_text || u.pen_name[0])} size={48} tone="vermilion" />
+            <Seal
+              char={String(u.seal_text || u.pen_name[0])}
+              size={48}
+              tone="vermilion"
+            />
             {showCorrespondence && (
               <Link
                 href={`/correspondence/${encodeURIComponent(String(u.pen_name))}`}
                 className="btn !px-4 !py-1.5 !text-sm"
               >
-                往来册
+                <UiText text={"往来册"} />
               </Link>
             )}
             {sess && !isMe && (
-              <FriendButton targetId={String(u.id)} pen={String(u.pen_name)} rel={rel} />
+              <FriendButton
+                targetId={String(u.id)}
+                pen={String(u.pen_name)}
+                rel={rel}
+              />
             )}
           </div>
         </div>
@@ -105,9 +132,13 @@ export default async function StudyPage({ params }: { params: Promise<{ pen: str
 
       <section className="space-y-3">
         {letters.rows.length === 0 ? (
-          <p className="py-10 text-center text-sm text-ink-soft">书房还空着，他还没有寄出过信。</p>
+          <p className="py-10 text-center text-sm text-ink-soft">
+            <UiText text={"书房还空着，他还没有寄出过信。"} />
+          </p>
         ) : (
-          letters.rows.map((l: any) => <LetterCard key={l.id} l={l as LetterRow} />)
+          letters.rows.map((l: any) => (
+            <LetterCard key={l.id} l={l as LetterRow} />
+          ))
         )}
       </section>
     </div>

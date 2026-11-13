@@ -1,45 +1,59 @@
-import Link from "next/link";
-import Reveal from "@/components/Reveal";
+import { UiText } from "@/components/UiText";
 
-export default function PrivacyPage() {
+import Link from "next/link";
+export default function Privacy() {
   return (
-    <div className="space-y-6">
-      <h1 className="rise text-3xl font-semibold tracking-tight">隐私政策</h1>
-      <Reveal>
-        <section className="card glass p-6">
-          <h2 className="text-lg font-semibold tracking-tight">客户端下载</h2>
-          <p className="mt-1.5 text-[15px] leading-relaxed text-ink-soft">
-            安卓 App 与桌面安装指引，见{" "}
-            <Link href="/download" className="text-vermilion hover:underline">
-              下载页
-            </Link>
-            。
-          </p>
-        </section>
-      </Reveal>
-      <Reveal>
-        <section className="card glass space-y-4 p-6 text-[15px] leading-relaxed">
-          <p>「慢递局」是一个属于站长与好友们的小圈子笔友网站。我们重视每位笔友的隐私，并尽可能少地收集数据。</p>
-          <h2 className="pt-1 text-lg font-semibold tracking-tight">我们收集什么</h2>
-          <ul className="list-inside list-disc space-y-1 text-ink-soft">
-            <li>注册时提供的邮箱、笔名、生日（生日仅用于生辰邮票）与头像设置；</li>
-            <li>你寄出的信件、批注、点赞与邮票收藏；</li>
-            <li>写信时填写的城市与天气（仅作邮戳与纪念票用途）。</li>
-          </ul>
-          <h2 className="pt-1 text-lg font-semibold tracking-tight">数据如何存放</h2>
-          <p className="text-ink-soft">全部数据存放于站长自建的数据库中，不上传、不出售、不用于任何广告或追踪。公开信（寄给所有人的信）可被访客浏览；私信与时光胶囊仅你与收件人可见。</p>
-          <h2 className="pt-1 text-lg font-semibold tracking-tight">你的权利</h2>
-          <p className="text-ink-soft">你可以随时修改笔名、私印与头像，也可以联系站长删除你的账号与全部数据。</p>
-          <h2 className="pt-1 text-lg font-semibold tracking-tight">联系我们</h2>
-          <p className="text-ink-soft">
-            任何隐私相关的问题，请发邮件至{" "}
-            <a href="mailto:ycharsenal@163.com" className="text-vermilion">
-              ycharsenal@163.com
-            </a>
-            。
-          </p>
-        </section>
-      </Reveal>
-    </div>
+    <article className="prose-letter mx-auto space-y-6">
+      <h1 className="text-3xl">
+        <UiText text={"隐私与内容权利"} />
+      </h1>
+      <p>
+        <UiText
+          text={
+            "私人信件、草稿与关系默认受到保护。公开作品需要主动选择；公开不意味着授权本站另行出版、修改或商业使用。"
+          }
+        />
+      </p>
+      <h2>
+        <UiText text={"收集与存储"} />
+      </h2>
+      <p>
+        <UiText
+          text={
+            "账号使用邮箱、笔名与密码哈希。生辰、头像及文学化地名均可自愿提供，不要求真实姓名、出生年份或真实住址。"
+          }
+        />
+      </p>
+      <p>
+        <UiText
+          text={
+            "部署可使用数据库及对象存储服务。启用邮件或推送时，相关服务会处理必要的收件地址或订阅资料。邮件通知默认关闭，用户可在设置中开启；来信提醒不含私人标题、正文或阅读状态。"
+          }
+        />
+      </p>
+      <h2>
+        <UiText text={"访问与备份"} />
+      </h2>
+      <p>
+        <UiText
+          text={
+            "私信仅在送达后向收件人开放。本站不会向寄件人提供已读回执。后台治理应遵循必要权限与审计；备份需要加密，附件需要单独保护与恢复核验。"
+          }
+        />
+      </p>
+      <h2>
+        <UiText text={"你的选择"} />
+      </h2>
+      <p>
+        <UiText
+          text={
+            "界面简繁切换不修改作品原文。你可以管理通知、保留私人副本；如需注销、撤回公开授权或处理个人数据，请联系站长。涉及双方书信和共同作品，会先说明保留与删除范围，不承诺未经核实的“全部彻底删除”。"
+          }
+        />
+      </p>
+      <Link href="mailto:ycharsenal@163.com" className="btn-ghost">
+        <UiText text={"联系站长处理隐私事项"} />
+      </Link>
+    </article>
   );
 }

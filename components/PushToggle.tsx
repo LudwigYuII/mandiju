@@ -1,4 +1,5 @@
 "use client";
+import { UiText } from "@/components/UiText";
 
 import { useEffect, useState } from "react";
 
@@ -54,11 +55,14 @@ export default function PushToggle() {
   }, []);
 
   async function toggle() {
-    if (state === "busy" || state === "loading" || state === "unsupported") return;
+    if (state === "busy" || state === "loading" || state === "unsupported")
+      return;
     setHint("");
 
     if (state === "denied") {
-      setHint("浏览器已拒绝本站通知。请在地址栏的通知/网站设置里重新允许，再回来开启。");
+      setHint(
+        "浏览器已拒绝本站通知。请在地址栏的通知/网站设置里重新允许，再回来开启。",
+      );
       return;
     }
 
@@ -127,8 +131,12 @@ export default function PushToggle() {
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-sm font-semibold">🔔 来信推送</p>
-          <p className="mt-1 text-xs text-ink-soft">开启后，新信送达会锁屏提醒</p>
+          <p className="text-sm font-semibold">
+            <UiText text={"🔔 来信推送"} />
+          </p>
+          <p className="mt-1 text-xs text-ink-soft">
+            <UiText text={"开启后，新信送达会锁屏提醒"} />
+          </p>
         </div>
         <button
           type="button"
@@ -144,7 +152,11 @@ export default function PushToggle() {
       {hint && <p className="text-xs text-vermilion">{hint}</p>}
       {!hint && state === "unsupported" && (
         <p className="text-xs text-ink-soft">
-          此浏览器暂不支持 Web Push。iOS 需先把本站添加到主屏幕并安装为 App 后才支持。
+          <UiText
+            text={
+              "此浏览器暂不支持 Web Push。iOS 需先把本站添加到主屏幕并安装为 App 后才支持。"
+            }
+          />
         </p>
       )}
     </div>

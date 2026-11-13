@@ -4,13 +4,16 @@ import manifest from "@/data/manifest.json";
 export const stampPath = (file: string) => `/assets/${file}`;
 
 export function avatarFile(id: string): string {
-  const a = (manifest.avatars as any[]).find((x) => x.id === id) ?? (manifest.avatars as any[])[0];
+  const a =
+    (manifest.avatars as any[]).find((x) => x.id === id) ??
+    (manifest.avatars as any[])[0];
   return `/assets/${a.file}`;
 }
 
 export function bgFile(id: string): string {
   const b =
-    (manifest.backgrounds as any[]).find((x) => x.id === id) ?? (manifest.backgrounds as any[])[0];
+    (manifest.backgrounds as any[]).find((x) => x.id === id) ??
+    (manifest.backgrounds as any[])[0];
   return `/assets/${b.file}`;
 }
 
@@ -22,5 +25,5 @@ export function stampDefById(id: string) {
 export function imgUrl(p: string | null | undefined): string {
   if (!p) return "";
   if (p.startsWith("http")) return p;
-  return `/${p}`;
+  return p.startsWith("/") ? p : `/${p}`;
 }

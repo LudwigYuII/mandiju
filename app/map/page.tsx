@@ -1,3 +1,5 @@
+import { UiText } from "@/components/UiText";
+
 import { redirect } from "next/navigation";
 import { db, waitDb } from "@/lib/db";
 import { getSession } from "@/lib/auth";
@@ -13,23 +15,31 @@ export default async function MapPage() {
 
   const cities = await db.execute({
     sql: `SELECT city, COUNT(*) AS n FROM letters
-          WHERE city IS NOT NULL AND city != '' AND (author_id = ? OR recipient_id = ?)
+          WHERE city IS NOT NULL AND city != '' AND (author_id = ? OR (recipient_id = ? AND deliver_at <= ?))
           GROUP BY city ORDER BY n DESC`,
-    args: [sess.uid, sess.uid],
+    args: [sess.uid, sess.uid, Date.now()],
   });
 
   return (
     <div className="space-y-6">
-      <h1 className="rise text-3xl font-semibold tracking-tight">城市邮戳地图</h1>
+      <h1 className="rise text-3xl font-semibold tracking-tight">
+        <UiText text={"往来地名"} />
+      </h1>
       <Reveal>
         <section className="card glass p-5">
           <p className="text-sm text-ink-soft">
-            你寄出和收到的信，盖过戳的城市都会点亮。
-            共点亮 {cities.rows.length} 座城市。
+            <UiText
+              text={"来自你已寄出或已收到的信，地点由作者自愿填写。 共点亮"}
+            />
+            {cities.rows.length}
+            <UiText text={"座城市。"} />
           </p>
           <div className="mt-4">
             <CityMap
-              data={cities.rows.map((r: any) => ({ city: String(r.city), count: Number(r.n) }))}
+              data={cities.rows.map((r: any) => ({
+                city: String(r.city),
+                count: Number(r.n),
+              }))}
             />
           </div>
         </section>

@@ -17,12 +17,22 @@ export function mailFromConfigured(): boolean {
   return typeof from === "string" && from.trim().length > 0;
 }
 
-export async function sendMail(to: string, subject: string, text: string): Promise<MailResult> {
+export async function sendMail(
+  to: string,
+  subject: string,
+  text: string,
+  idempotencyKey?: string,
+): Promise<MailResult> {
   const key = process.env.RESEND_API_KEY;
   if (!mailConfigured()) {
     // 无 key：静默降级为日志，绝不抛错影响主流程
-    console.log(`[MAIL] 未配置 RESEND_API_KEY，跳过发送（仅日志）to=${to} | ${subject} | ${text}`);
-    return { ok: false, error: "未配置 RESEND_API_KEY（当前降级为控制台日志）" };
+    console.warn(
+      "[MAIL] Delivery unavailable: email provider is not configured",
+    );
+    return {
+      ok: false,
+      error: "未配置 RESEND_API_KEY（当前降级为控制台日志）",
+    };
   }
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -30,7 +40,9 @@ export async function sendMail(to: string, subject: string, text: string): Promi
       headers: {
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
+        ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
       },
+      signal: AbortSignal.timeout(20000),
       body: JSON.stringify({
         from: process.env.MAIL_FROM || "慢递局 <letters@ludwig.uno>",
         to: [to],
@@ -40,8 +52,8 @@ export async function sendMail(to: string, subject: string, text: string): Promi
     });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
-      console.error("[MAIL] send failed:", res.status, body);
-      return { ok: false, error: `Resend ${res.status}：${body.slice(0, 300)}` };
+      console.error("[MAIL] send failed:", res.status);
+      return { ok: false, error: `邮件服务返回 ${res.status}` };
     }
     return { ok: true };
   } catch (e) {
@@ -50,75 +62,122 @@ export async function sendMail(to: string, subject: string, text: string): Promi
   }
 }
 
-/** 送达通知扫描：私信/胶囊送达后通知收件人（懒执行，随页面加载触发） */
+/** Durable delivery outbox. Never use client timers or a read receipt to deliver a letter. */
 export async function sweepDelivered() {
-  const rows = await db.execute({
-    sql: `SELECT l.id, l.title, l.recipient_id, l.author_id, l.burn_seconds, ua.pen_name AS author_pen,
-                 ur.email AS recip_email, ur.pen_name AS recip_pen
-          FROM letters l
-          JOIN users ua ON ua.id = l.author_id
-          LEFT JOIN users ur ON ur.id = l.recipient_id
-          WHERE l.deliver_at <= ? AND l.notified = 0 AND l.recipient_id IS NOT NULL
-            AND l.read_at IS NULL AND l.burned = 0`,
-    args: [Date.now()],
+  const now = Date.now();
+  const due = await db.execute({
+    sql: `SELECT l.id,l.recipient_id,u.email,u.mail_notices FROM letters l JOIN users u ON u.id=l.recipient_id
+    WHERE l.deliver_at<=? AND l.notified=0 AND l.recipient_id IS NOT NULL AND l.burned=0 LIMIT 200`,
+    args: [now],
   });
-  for (const r of rows.rows as any[]) {
-    // 幂等保护：cron 与首页懒扫描可能并发，已通知过就跳过
-    const link = `/letter/${String(r.id)}`;
-    const dup = await db.execute({
-      sql: "SELECT 1 FROM notifications WHERE user_id=? AND type='letter_in' AND link=? LIMIT 1",
-      args: [String(r.recipient_id), link],
-    });
-    if (dup.rows.length > 0) continue;
-
-    const email = String(r.recip_email ?? "");
-    const isCapsule = String(r.recipient_id) === String(r.author_id);
-    const isBurn = Number(r.burn_seconds ?? 0) > 0;
-    const subject = isCapsule
-      ? "慢递局 · 你的时光胶囊到期了"
-      : isBurn
-        ? "慢递局 · 你收到一封阅后即焚的信"
-        : "慢递局 · 你收到一封信";
-    const text = isCapsule
-      ? `你写给自己的信《${String(r.title)}》已到期解锁，回局里看看吧。`
-      : isBurn
-        ? `${String(r.author_pen)} 寄给你的信《${String(r.title)}》已经送达。这是一封阅后即焚的信：拆封即开始倒计时，读完即焚，只能看这一次。`
-        : `${String(r.author_pen)} 寄给你的信《${String(r.title)}》已经送达，回局里看看吧。`;
-    if (email) await sendMail(email, subject, text);
-    await notify(
-      String(r.recipient_id),
-      "letter_in",
-      isCapsule
-        ? `你的时光胶囊《${String(r.title)}》已解锁`
-        : isBurn
-          ? `你收到一封阅后即焚的信：《${String(r.title)}》，拆封即焚`
-          : `你收到一封信：《${String(r.title)}》`,
-      link
-    );
-    // Web Push（未配置 VAPID 时静默跳过）
-    try {
-      await sendPushToUser(
-        String(r.recipient_id),
-        isCapsule
-          ? "慢递局 · 时光胶囊已解锁"
-          : isBurn
-            ? "慢递局 · 阅后即焚"
-            : "慢递局 · 你收到一封信",
-        isCapsule
-          ? `你写给自己的信《${String(r.title)}》到期了`
-          : isBurn
-            ? `${String(r.author_pen)} 寄来一封阅后即焚的信，拆封即燃`
-            : `${String(r.author_pen)} 寄来一封信：《${String(r.title)}》`,
-        link
-      );
-    } catch {
-      /* push 失败不影响送达 */
+  for (const l of due.rows) {
+    const subs = (
+      await db.execute({
+        sql: "SELECT id FROM push_subs WHERE user_id=?",
+        args: [String(l.recipient_id)],
+      })
+    ).rows;
+    for (const channel of [
+      "inapp",
+      "email",
+      ...subs.map((x) => `push:${String(x.id)}`),
+    ]) {
+      await db.execute({
+        sql: "INSERT OR IGNORE INTO delivery_jobs(letter_id,channel) VALUES(?,?)",
+        args: [String(l.id), channel],
+      });
     }
   }
-  if (rows.rows.length > 0) {
+  const jobs = await db.execute({
+    sql: `SELECT j.*,l.recipient_id,l.deliver_at,l.burned,u.email,u.mail_notices
+    FROM delivery_jobs j JOIN letters l ON l.id=j.letter_id JOIN users u ON u.id=l.recipient_id
+    WHERE j.status IN ('pending','processing') AND j.next_attempt_at<=? AND j.lease_until<=? AND l.deliver_at<=? LIMIT 200`,
+    args: [now, now, now],
+  });
+  for (const j of jobs.rows) {
+    const id = String(j.letter_id),
+      channel = String(j.channel),
+      uid = String(j.recipient_id);
+    const token = crypto.randomUUID();
+    const lease = await db.execute({
+      sql: "UPDATE delivery_jobs SET status='processing',lease_until=?,claim_token=?,attempts=attempts+1 WHERE letter_id=? AND channel=? AND status IN ('pending','processing') AND lease_until<=? RETURNING attempts",
+      args: [Date.now() + 300000, token, id, channel, Date.now()],
+    });
+    if (!lease.rows.length) continue;
+    let status = "sent";
+    try {
+      if (Number(j.burned)) {
+        status = "skipped";
+      } else if (channel === "inapp") {
+        // Legacy event lookup avoids replaying already notified historical letters.
+        const old = (
+          await db.execute({
+            sql: "SELECT 1 FROM notifications WHERE user_id=? AND type='letter_in' AND link=? LIMIT 1",
+            args: [uid, `/letter/${id}`],
+          })
+        ).rows.length;
+        if (!old)
+          await db.execute({
+            sql: "INSERT OR IGNORE INTO notifications(id,user_id,type,body,link,created_at,event_key) VALUES(?,?,?,?,?,?,?)",
+            args: [
+              crypto.randomUUID(),
+              uid,
+              "letter_in",
+              "你有一封新到的信。",
+              `/letter/${id}`,
+              Date.now(),
+              `letter_in:${id}`,
+            ],
+          });
+      } else if (channel === "email") {
+        if (!Number(j.mail_notices) || !mailConfigured()) status = "skipped";
+        else if (
+          !(
+            await sendMail(
+              String(j.email),
+              "慢递局 · 来信",
+              "你有一封新到的信，可在方便时回局里阅读。",
+              `letter:${id}`,
+            )
+          ).ok
+        )
+          throw new Error("email_delivery_failed");
+      } else if (channel.startsWith("push:")) {
+        const sub = (
+          await db.execute({
+            sql: "SELECT endpoint FROM push_subs WHERE id=? AND user_id=?",
+            args: [channel.slice(5), uid],
+          })
+        ).rows[0];
+        if (!sub) status = "skipped";
+        else if (
+          !(await sendPushToUser(
+            uid,
+            "慢递局 · 来信",
+            "你有一封新到的信。",
+            `/letter/${id}`,
+            String(sub.endpoint),
+          ))
+        )
+          throw new Error("push_delivery_failed");
+      }
+      await db.execute({
+        sql: "UPDATE delivery_jobs SET status=?,lease_until=0,last_error=NULL WHERE letter_id=? AND channel=? AND claim_token=?",
+        args: [status, id, channel, token],
+      });
+    } catch {
+      const delay = Math.min(
+        3600000,
+        30000 * 2 ** Math.min(7, Number(lease.rows[0].attempts)),
+      );
+      await db.execute({
+        sql: "UPDATE delivery_jobs SET status='pending',lease_until=0,next_attempt_at=?,last_error='channel_failed' WHERE letter_id=? AND channel=? AND claim_token=?",
+        args: [Date.now() + delay, id, channel, token],
+      });
+    }
     await db.execute({
-      sql: `UPDATE letters SET notified = 1 WHERE deliver_at <= ? AND notified = 0 AND recipient_id IS NOT NULL`,
-      args: [Date.now()],
+      sql: "UPDATE letters SET notified=1 WHERE id=? AND NOT EXISTS(SELECT 1 FROM delivery_jobs WHERE letter_id=? AND status NOT IN ('sent','skipped'))",
+      args: [id, id],
     });
   }
 }
@@ -146,19 +205,19 @@ export async function sendReplyNoticeEmail(opts: {
 }): Promise<void> {
   if (!mailConfigured()) return;
   try {
-    const r = await db.execute({
-      sql: "SELECT email FROM users WHERE id=?",
-      args: [opts.authorId],
-    });
-    const email = String((r.rows[0] as { email?: unknown } | undefined)?.email ?? "");
-    if (!email) return;
-    const excerpt = opts.replyBody.length > 300 ? `${opts.replyBody.slice(0, 300)}…` : opts.replyBody;
+    const user = (
+      await db.execute({
+        sql: "SELECT email,mail_notices FROM users WHERE id=?",
+        args: [opts.authorId],
+      })
+    ).rows[0];
+    if (!user || !Number(user.mail_notices)) return;
     await sendMail(
-      email,
-      `慢递局 · ${opts.replierPen} 在《${opts.letterTitle}》下留了批注`,
-      `${opts.replierPen} 在《${opts.letterTitle}》下批注：\n\n${excerpt}\n\n回局里看看：https://ludwig.uno/letter/${opts.letterId}`
+      String(user.email),
+      "慢递局 · 批注",
+      "有人为你的文字留下批注，可在方便时回局里阅读。",
     );
-  } catch (e) {
-    console.error("[MAIL] 批注通知邮件失败（不影响批注）：", e);
+  } catch {
+    console.error("[MAIL] reply notification failed");
   }
 }

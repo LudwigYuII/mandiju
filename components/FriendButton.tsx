@@ -1,4 +1,5 @@
 "use client";
+import { UiText, UiInput } from "@/components/UiText";
 
 import Link from "next/link";
 import { useActionState } from "react";
@@ -22,39 +23,52 @@ export default function FriendButton({
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     sendFriendRequestAction,
-    {}
+    {},
   );
 
   if (state?.ok) {
-    return <span className="btn-ghost !px-4 !py-1.5 !text-sm opacity-60">✉️ 已寄出申请</span>;
+    return (
+      <span className="btn-ghost !px-4 !py-1.5 !text-sm opacity-60">
+        <UiText text={"✉️ 已寄出申请"} />
+      </span>
+    );
   }
 
   if (rel === "friends") {
     return (
-      <Link href={`/write?to=${encodeURIComponent(pen)}`} className="btn !px-4 !py-1.5 !text-sm">
-        写信
+      <Link
+        href={`/write?to=${encodeURIComponent(pen)}`}
+        className="btn !px-4 !py-1.5 !text-sm"
+      >
+        <UiText text={"写信"} />
       </Link>
     );
   }
   if (rel === "pending_out") {
     return (
-      <span className="btn-ghost !px-4 !py-1.5 !text-sm opacity-60">✉️ 已寄出申请</span>
+      <span className="btn-ghost !px-4 !py-1.5 !text-sm opacity-60">
+        <UiText text={"✉️ 已寄出申请"} />
+      </span>
     );
   }
   if (rel === "pending_in") {
     return (
       <Link href="/friends" className="btn !px-4 !py-1.5 !text-sm">
-        ✉️ 去接受申请
+        <UiText text={"✉️ 去接受申请"} />
       </Link>
     );
   }
   return (
     <form action={formAction}>
-      <input type="hidden" name="targetId" value={targetId} />
+      <UiInput type="hidden" name="targetId" value={targetId} />
       <button className="btn !px-4 !py-1.5 !text-sm" disabled={pending}>
-        {pending ? "寄出中…" : "加为笔友"}
+        <UiText text={pending ? "寄出中…" : "加为笔友"} />
       </button>
-      {state?.error && <p className="mt-1 text-right text-xs text-vermilion">{state.error}</p>}
+      {state?.error && (
+        <p className="mt-1 text-right text-xs text-vermilion">
+          <UiText text={state.error} />
+        </p>
+      )}
     </form>
   );
 }

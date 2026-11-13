@@ -1,3 +1,7 @@
 nodeLinker: hoisted
 onlyBuiltDependencies:
   - sharp
+
+overrides:
+  "next>postcss": "8.5.32"
+  "next>sharp": "0.35.5"

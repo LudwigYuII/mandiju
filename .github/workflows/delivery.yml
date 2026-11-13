@@ -1,0 +1,23 @@
+name: delivery
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: letter-delivery
+  cancel-in-progress: false
+jobs:
+  deliver:
+    if: ${{ vars.MDJ_SITE_URL != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Deliver due inbox notifications
+        env:
+          MDJ_SITE_URL: ${{ vars.MDJ_SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$CRON_SECRET" || { echo '::error::CRON_SECRET is required'; exit 1; }
+          curl --fail --silent --show-error --max-time 45 --retry 2 --proto '=https' --header "Authorization: Bearer $CRON_SECRET" "${MDJ_SITE_URL%/}/api/cron"

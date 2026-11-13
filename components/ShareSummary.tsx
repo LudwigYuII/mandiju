@@ -1,4 +1,5 @@
 "use client";
+import { UiText } from "@/components/UiText";
 
 import { useState } from "react";
 
@@ -13,7 +14,7 @@ export default function ShareSummary({ text }: { text: string }) {
   };
   return (
     <button onClick={copy} className="btn-ghost !px-5 !py-2 !text-sm">
-      {done ? "已复制 ✓" : "复制我的年度摘要"}
+      <UiText text={done ? "已复制 ✓" : "复制我的年度摘要"} />
     </button>
   );
 }

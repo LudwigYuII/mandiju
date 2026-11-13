@@ -1,3 +1,5 @@
+import { UiText, UiInput } from "@/components/UiText";
+
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import manifest from "@/data/manifest.json";
@@ -14,6 +16,8 @@ import AppearancePanel from "@/components/AppearancePanel";
 import PushToggle from "@/components/PushToggle";
 import BirthdayEditor from "@/components/BirthdayEditor";
 
+import { updateMailPreferenceAction } from "@/lib/actions";
+
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
@@ -22,15 +26,18 @@ export default async function SettingsPage() {
   if (!sess) redirect("/login");
 
   const me = (
-    await db.execute({ sql: "SELECT * FROM users WHERE id=?", args: [sess.uid] })
+    await db.execute({
+      sql: "SELECT * FROM users WHERE id=?",
+      args: [sess.uid],
+    })
   ).rows[0] as any;
   const isAdmin = String(me.role) === "admin";
 
   const inbox = await db.execute({
     sql: `SELECT l.*, ua.pen_name AS peer_pen, ua.seal_text AS peer_seal
           FROM letters l JOIN users ua ON ua.id = l.author_id
-          WHERE l.recipient_id = ? ORDER BY l.deliver_at DESC LIMIT 5`,
-    args: [sess.uid],
+          WHERE l.recipient_id = ? AND l.deliver_at <= ? ORDER BY l.deliver_at DESC LIMIT 5`,
+    args: [sess.uid, Date.now()],
   });
   const outbox = await db.execute({
     sql: `SELECT l.*, ur.pen_name AS peer_pen, ur.seal_text AS peer_seal
@@ -54,7 +61,9 @@ export default async function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="rise px-1 text-3xl font-semibold tracking-tight">我</h1>
+      <h1 className="rise px-1 text-3xl font-semibold tracking-tight">
+        <UiText text={"我"} />
+      </h1>
       <div className="card glass flex items-center gap-4 p-5">
         <Avatar
           pen={String(me.pen_name)}
@@ -68,24 +77,50 @@ export default async function SettingsPage() {
             <Seal char={String(me.seal_text || me.pen_name[0])} size={22} />
           </div>
           <div className="text-xs text-ink-soft">
-            {String(me.email)} · 已寄出 {Number(me.letters_sent)} 封信 · 余额 {Number(me.coins)} 文
+            {String(me.email)}
             {me.birthday ? ` · 生日 ${String(me.birthday)}` : ""}
           </div>
         </div>
       </div>
 
+      <section className="card p-5">
+        <form action={updateMailPreferenceAction} className="space-y-3">
+          <label className="flex gap-3 items-center">
+            <UiInput
+              type="checkbox"
+              name="enabled"
+              defaultChecked={!!Number(me.mail_notices)}
+            />
+            <UiText text={"来信送达时发邮件（可选）"} />
+          </label>
+          <p className="text-sm text-ink-soft">
+            <UiText text={"邮件只提示来信，不含标题、正文或对方阅读状态。"} />
+          </p>
+          <button className="btn-ghost">
+            <UiText text={"保存通知偏好"} />
+          </button>
+        </form>
+      </section>
       <section className="card glass p-5">
-        <h2 className="text-sm font-semibold tracking-widest">外观</h2>
-        <p className="mt-1 text-xs text-ink-soft">主题、全站字体与简繁切换，仅对本设备生效。</p>
+        <h2 className="text-sm font-semibold tracking-widest">
+          <UiText text={"外观"} />
+        </h2>
+        <p className="mt-1 text-xs text-ink-soft">
+          <UiText text={"主题、全站字体与简繁切换，仅对本设备生效。"} />
+        </p>
         <div className="mt-4">
           <AppearancePanel />
         </div>
       </section>
 
       <section className="card glass p-5">
-        <h2 className="text-sm font-semibold tracking-widest">通知</h2>
+        <h2 className="text-sm font-semibold tracking-widest">
+          <UiText text={"通知"} />
+        </h2>
         <p className="mt-1 text-xs text-ink-soft">
-          新信送达时向本设备推送提醒；只在本设备生效，可随时取消。
+          <UiText
+            text={"新信送达时向本设备推送提醒；只在本设备生效，可随时取消。"}
+          />
         </p>
         <div className="mt-4">
           <PushToggle />
@@ -94,9 +129,11 @@ export default async function SettingsPage() {
 
       <section className="card glass p-5">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold tracking-widest">往来信笺</h2>
+          <h2 className="text-sm font-semibold tracking-widest">
+            <UiText text={"往来信笺"} />
+          </h2>
           <Link href="/mail" className="text-xs text-ink-soft hover:text-ink">
-            全部 →
+            <UiText text={"全部 →"} />
           </Link>
         </div>
         <div className="mt-3 grid gap-6 sm:grid-cols-2">
@@ -105,13 +142,18 @@ export default async function SettingsPage() {
             { title: "去信", rows: outbox.rows },
           ].map((col) => (
             <div key={col.title}>
-              <p className="mb-2 text-xs font-semibold text-ink-soft">{col.title}</p>
+              <p className="mb-2 text-xs font-semibold text-ink-soft">
+                {col.title}
+              </p>
               {col.rows.length === 0 ? (
-                <p className="text-sm text-ink-soft">暂无</p>
+                <p className="text-sm text-ink-soft">
+                  <UiText text={"暂无"} />
+                </p>
               ) : (
                 <ul className="space-y-2">
                   {col.rows.map((l: any) => {
-                    const delivered = statusOf(Number(l.deliver_at)) === "delivered";
+                    const delivered =
+                      statusOf(Number(l.deliver_at)) === "delivered";
                     return (
                       <li key={l.id}>
                         <Link
@@ -121,13 +163,16 @@ export default async function SettingsPage() {
                           }`}
                         >
                           <div className="min-w-0">
-                            <div className="truncate text-sm font-semibold">{String(l.title)}</div>
+                            <div className="truncate text-sm font-semibold">
+                              {String(l.title)}
+                            </div>
                             <div className="text-xs text-ink-soft">
-                              {String(l.peer_pen)} · {fmtTime(Number(l.deliver_at))}
+                              {String(l.peer_pen)} ·{" "}
+                              {fmtTime(Number(l.deliver_at))}
                             </div>
                           </div>
                           <span className="shrink-0 text-xs text-ink-soft">
-                            {delivered ? "已送达" : "运输中"}
+                            <UiText text={delivered ? "已送达" : "运输中"} />
                           </span>
                         </Link>
                       </li>
@@ -141,9 +186,15 @@ export default async function SettingsPage() {
       </section>
 
       <section className="card glass p-5">
-        <h2 className="text-sm font-semibold tracking-widest">头像</h2>
+        <h2 className="text-sm font-semibold tracking-widest">
+          <UiText text={"头像"} />
+        </h2>
         <p className="mt-1 text-xs text-ink-soft">
-          上传自己的整图头像，或组合「官方汉服小人 + 自定义背景（毛玻璃雾化）」。
+          <UiText
+            text={
+              "上传自己的整图头像，或组合「官方汉服小人 + 自定义背景（毛玻璃雾化）」。"
+            }
+          />
         </p>
         <div className="mt-4">
           <ProfileAvatarEditor
@@ -157,15 +208,23 @@ export default async function SettingsPage() {
       </section>
 
       <section className="card glass p-5">
-        <h2 className="text-sm font-semibold tracking-widest">私印</h2>
-        <p className="mt-1 text-xs text-ink-soft">一至两个汉字，盖在你寄出的每封信上。</p>
+        <h2 className="text-sm font-semibold tracking-widest">
+          <UiText text={"私印"} />
+        </h2>
+        <p className="mt-1 text-xs text-ink-soft">
+          <UiText text={"一至两个汉字，盖在你寄出的每封信上。"} />
+        </p>
         <SealEditor current={String(me.seal_text || me.pen_name[0])} />
       </section>
 
       <section className="card glass p-5">
-        <h2 className="text-sm font-semibold tracking-widest">生辰</h2>
+        <h2 className="text-sm font-semibold tracking-widest">
+          <UiText text={"生辰"} />
+        </h2>
         <p className="mt-1 text-xs text-ink-soft">
-          生日当天局里会送上问候，当天寄信还能盖「生辰」纪念票。
+          <UiText
+            text={"生辰自愿填写，仅本人设置可见；不用于年龄推断或奖励。"}
+          />
         </p>
         <div className="mt-4">
           <BirthdayEditor current={me.birthday ? String(me.birthday) : null} />
@@ -176,11 +235,15 @@ export default async function SettingsPage() {
         <section className="card glass border-vermilion/30 p-5">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-semibold tracking-widest text-vermilion">邮务总办</h2>
-              <p className="mt-1 text-xs text-ink-soft">看板、局友管理、公告与信件管理。</p>
+              <h2 className="text-sm font-semibold tracking-widest text-vermilion">
+                <UiText text={"邮务总办"} />
+              </h2>
+              <p className="mt-1 text-xs text-ink-soft">
+                <UiText text={"看板、局友管理、公告与信件管理。"} />
+              </p>
             </div>
             <Link href="/admin" className="btn !px-5 !py-2 !text-sm">
-              进入后台 →
+              <UiText text={"进入后台 →"} />
             </Link>
           </div>
         </section>
@@ -188,16 +251,22 @@ export default async function SettingsPage() {
 
       <section className="card glass p-5">
         <h2 className="text-sm font-semibold tracking-widest">
-          {isAdmin ? "站长工具 · 邀请码管理" : "我的邀请码"}
+          <UiText text={isAdmin ? "站长工具 · 邀请码管理" : "我的邀请码"} />
         </h2>
         <p className="mt-1 text-xs text-ink-soft">
-          {isAdmin
-            ? "生成一次性邀请码发给朋友，他们就能凭码注册。"
-            : "每寄满 10 封信，自动获得 3 枚；把邀请码发给朋友，他们就能凭码注册。"}
+          <UiText
+            text={
+              isAdmin
+                ? "生成一次性邀请码发给朋友，他们就能凭码注册。"
+                : "荐帖由站主管理发放；已有荐帖继续有效，不以寄信数量换取。"
+            }
+          />
         </p>
         {isAdmin && <GenerateInvites />}
         {invites.rows.length === 0 ? (
-          <p className="mt-3 text-sm text-ink-soft">还没有邀请码。</p>
+          <p className="mt-3 text-sm text-ink-soft">
+            <UiText text={"还没有邀请码。"} />
+          </p>
         ) : (
           <ul className="mt-3 space-y-2">
             {invites.rows.map((inv: any) => (
@@ -213,7 +282,9 @@ export default async function SettingsPage() {
                 {inv.used_by
                   ? `（已使用${inv.used_by_pen ? " · " + String(inv.used_by_pen) : ""}）`
                   : "（未使用）"}
-                {isAdmin && inv.creator ? ` · 由 ${String(inv.creator)} 生成` : ""}
+                {isAdmin && inv.creator
+                  ? ` · 由 ${String(inv.creator)} 生成`
+                  : ""}
               </li>
             ))}
           </ul>
@@ -221,22 +292,24 @@ export default async function SettingsPage() {
       </section>
 
       <section className="card glass p-5">
-        <h2 className="text-sm font-semibold tracking-widest">书信与足迹</h2>
+        <h2 className="text-sm font-semibold tracking-widest">
+          <UiText text={"书信与足迹"} />
+        </h2>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link href="/print?scope=mine" className="btn-ghost !text-sm">
-            🖨 书信集（打印成册）
+            <UiText text={"🖨 书信集（打印成册）"} />
           </Link>
           <Link href="/map" className="btn-ghost !text-sm">
-            🗺 城市邮戳地图
+            <UiText text={"🗺 城市邮戳地图"} />
           </Link>
           <Link href="/year" className="btn-ghost !text-sm">
-            ✨ 年度信笺
+            <UiText text={"✨ 年度信笺"} />
           </Link>
           <Link href="/quotes" className="btn-ghost !text-sm">
-            📜 小笺库
+            <UiText text={"📜 小笺库"} />
           </Link>
           <Link href="/changelog" className="btn-ghost !text-sm">
-            🧾 更新日志
+            <UiText text={"🧾 更新日志"} />
           </Link>
         </div>
       </section>

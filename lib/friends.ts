@@ -3,7 +3,10 @@ import { db } from "./db";
 
 export type Friendship = "none" | "pending_out" | "pending_in" | "friends";
 
-export async function friendshipBetween(a: string, b: string): Promise<Friendship> {
+export async function friendshipBetween(
+  a: string,
+  b: string,
+): Promise<Friendship> {
   const r = await db.execute({
     sql: "SELECT status FROM friends WHERE (requester_id=? AND addressee_id=?) OR (requester_id=? AND addressee_id=?) LIMIT 1",
     args: [a, b, b, a],
@@ -19,7 +22,10 @@ export async function areFriends(a: string, b: string): Promise<boolean> {
 }
 
 /** 收件人权限：站长可写给任何人；任何人可写给站长；笔友互寄；收到过对方的信即可回信 */
-export async function canWriteTo(meId: string, targetId: string): Promise<boolean> {
+export async function canWriteTo(
+  meId: string,
+  targetId: string,
+): Promise<boolean> {
   if (meId === targetId) return false; // 自己寄自己走胶囊通道
   const roles = await db.execute({
     sql: "SELECT id, role FROM users WHERE id IN (?,?)",
@@ -28,7 +34,8 @@ export async function canWriteTo(meId: string, targetId: string): Promise<boolea
   const me = (roles.rows as any[]).find((x) => String(x.id) === meId);
   const target = (roles.rows as any[]).find((x) => String(x.id) === targetId);
   if (!me || !target) return false;
-  if (String(me.role) === "admin" || String(target.role) === "admin") return true;
+  if (String(me.role) === "admin" || String(target.role) === "admin")
+    return true;
   if (await areFriends(meId, targetId)) return true;
   // 收到过对方的信即可回信（回信豁免）
   const got = await db.execute({
@@ -113,7 +120,9 @@ export async function pendingRequestsFor(uid: string, dir: "in" | "out") {
     args: [uid, uid, uid],
   });
   return (r.rows as any[]).filter((x) =>
-    dir === "in" ? String(x.addressee_id) === uid : String(x.requester_id) === uid
+    dir === "in"
+      ? String(x.addressee_id) === uid
+      : String(x.requester_id) === uid,
   );
 }
 

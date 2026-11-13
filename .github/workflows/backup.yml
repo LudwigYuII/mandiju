@@ -1,104 +1,102 @@
 name: backup
-
-# 慢递局 · 每日数据库备份
-#
-# 做什么：每晚用 tools/export-backup.mjs 把线上 Turso（libSQL）库整库导出为
-#   schema.sql + tables/*.json + manifest.json，再作为 GitHub Actions artifact 保留 30 天。
-#
-# 为什么不用 tools/backup.py：那个脚本是站长本机用的（打包本机 web/data/local.db 与
-#   public/uploads），依赖本机路径，跑不通线上的 Turso 库；CI 里改用 libsql 客户端直连导出。
-#
-# 需要配一次的仓库 Secrets（Settings → Secrets and variables → Actions → New repository secret）：
-#   MDJ_DB              线上数据库地址，形如 libsql://xxx.turso.io（就是 Vercel 上那一个）
-#   MDJ_DB_AUTH_TOKEN   Turso 数据库令牌，生成：turso db tokens create <库名>
-#
-# 手动跑：Actions → backup → Run workflow。
-# 注意：快照含用户邮箱与密码哈希，属于敏感数据；artifact 仅本仓库可见，30 天后自动删除，
-#       不会进仓库、不会发布 Release。也请勿把导出的 backups/ 提交进 git。
-#
-# 与本文件无关：build-clients.yml 由另一条线维护，这里不碰。
-
 on:
   schedule:
-    # UTC 19:00 = 北京时间 03:00（避开整点 cron 拥堵，也不跟站点部署撞点）
     - cron: "0 19 * * *"
   workflow_dispatch:
-
+    inputs:
+      operation:
+        description: Verified rollout operation
+        type: choice
+        default: backup
+        options:
+          - backup
+          - migrate
+          - retire
 permissions:
   contents: read
-
 concurrency:
   group: db-backup
   cancel-in-progress: false
-
 jobs:
   export:
-    name: 导出数据库快照
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: 10
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-
-      - name: 检查备份所需的 Secrets
+      - name: Verify backup configuration
         env:
           MDJ_DB: ${{ secrets.MDJ_DB }}
           MDJ_DB_AUTH_TOKEN: ${{ secrets.MDJ_DB_AUTH_TOKEN }}
+          BACKUP_CERT: ${{ secrets.MDJ_BACKUP_RECIPIENT_CERT }}
         run: |
-          set -euo pipefail
-          missing=""
-          [ -n "${MDJ_DB}" ] || missing="${missing} MDJ_DB"
-          [ -n "${MDJ_DB_AUTH_TOKEN}" ] || missing="${missing} MDJ_DB_AUTH_TOKEN"
-          if [ -n "${missing}" ]; then
-            echo "::error::缺少仓库 Secrets:${missing}。请到 Settings → Secrets and variables → Actions 添加后再运行。"
-            exit 1
-          fi
-          echo "Secrets 已就绪（值不会打印）"
-
-      - name: 安装依赖（导出脚本只用 @libsql/client）
-        run: pnpm install --no-frozen-lockfile
-
-      - name: 导出数据库快照
+          test -n "$MDJ_DB" && test -n "$MDJ_DB_AUTH_TOKEN" && test -n "$BACKUP_CERT" || { echo '::error::Configure database credentials and MDJ_BACKUP_RECIPIENT_CERT before backing up'; exit 1; }
+      - run: pnpm install --frozen-lockfile
+      - name: Export consistent database snapshot
         env:
           MDJ_DB: ${{ secrets.MDJ_DB }}
           MDJ_DB_AUTH_TOKEN: ${{ secrets.MDJ_DB_AUTH_TOKEN }}
         run: node tools/export-backup.mjs backups
-
-      - name: 上传快照（保留 30 天）
-        uses: actions/upload-artifact@v4
+      - name: Export and verify private attachments
+        env:
+          MDJ_PRIVATE_STORAGE: ${{ vars.MDJ_PRIVATE_STORAGE }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_PRIVATE_BUCKET: ${{ secrets.R2_PRIVATE_BUCKET }}
+          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+        run: node --require tsx/cjs tools/export-media-backup.cjs backups
+      - name: Verify isolated database and attachment restore
+        env:
+          MDJ_RESTORE_DB: file:/tmp/mandiju-restore.db
+        run: |
+          set -euo pipefail
+          snapshot="$(find backups -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+          node tools/restore-backup.mjs "$snapshot"
+          MDJ_DB=file:/tmp/mandiju-restore.db MDJ_PRIVATE_STORAGE=/tmp/mandiju-restore-media node --require tsx/cjs tools/restore-media-backup.cjs "$snapshot"
+      - name: Apply verified additive migration
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.operation != 'backup' }}
+        env:
+          MDJ_DB: ${{ secrets.MDJ_DB }}
+          MDJ_DB_AUTH_TOKEN: ${{ secrets.MDJ_DB_AUTH_TOKEN }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_PRIVATE_BUCKET: ${{ secrets.R2_PRIVATE_BUCKET }}
+          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+          OPERATION: ${{ inputs.operation }}
+        run: |
+          set -euo pipefail
+          node --require tsx/cjs tools/migrate-private-media.cjs --apply --backup-verified
+          if [ "$OPERATION" = retire ]; then
+            node --require tsx/cjs tools/migrate-private-media.cjs --apply --backup-verified --retire-public
+          fi
+      - name: Encrypt before upload
+        env:
+          BACKUP_CERT: ${{ secrets.MDJ_BACKUP_RECIPIENT_CERT }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$BACKUP_CERT" > "$RUNNER_TEMP/backup-recipient.pem"
+          tar -czf "$RUNNER_TEMP/snapshot.tar.gz" backups
+          openssl cms -encrypt -binary -aes-256-cbc -in "$RUNNER_TEMP/snapshot.tar.gz" -out backup.p7m -outform DER "$RUNNER_TEMP/backup-recipient.pem"
+          sha256sum backup.p7m > backup.sha256
+      - uses: actions/upload-artifact@v4
         with:
-          name: db-backup-${{ github.run_number }}
+          name: encrypted-db-backup-${{ github.run_number }}
           path: |
-            backups/**/manifest.json
-            backups/**/schema.sql
-            backups/**/README.md
-            backups/**/tables/*.json
+            backup.p7m
+            backup.sha256
           retention-days: 30
           if-no-files-found: error
-
-      - name: 备份摘要
+      - name: Remove plaintext working copies
         if: always()
-        run: |
-          echo "## 慢递局数据库备份" >> "$GITHUB_STEP_SUMMARY"
-          if ls backups/*/manifest.json >/dev/null 2>&1; then
-            f=$(ls backups/*/manifest.json | head -n1)
-            node -e '
-              const m = require("./" + process.argv[1]);
-              console.log(`- 导出时间：${m.exportedAt}`);
-              console.log(`- 来源：${m.source.label}`);
-              console.log(`- 表数量：${m.tableCount} · 总行数：${m.totalRows} · 耗时：${m.durationMs}ms`);
-            ' "$f" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "- ❌ 没有生成 manifest.json，请检查上面的失败步骤" >> "$GITHUB_STEP_SUMMARY"
-          fi
+        run: rm -rf backups "$RUNNER_TEMP/snapshot.tar.gz" "$RUNNER_TEMP/backup-recipient.pem"

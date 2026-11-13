@@ -1,3 +1,7 @@
+import { UiText } from "@/components/UiText";
+
+import { siteDateKey } from "@/lib/time";
+import { useId } from "react";
 import { fmtTime } from "@/lib/delivery";
 
 /**
@@ -15,24 +19,28 @@ export default function Postmark({
   size?: number;
   firstDay?: boolean;
 }) {
-  const d = new Date(time);
-  const dateStr = `${d.getFullYear()}·${String(d.getMonth() + 1).padStart(2, "0")}·${String(
-    d.getDate()
-  ).padStart(2, "0")}`;
+  const dateStr = siteDateKey(new Date(time)).replaceAll("-", "·");
+  const stampId = useId().replaceAll(":", "");
   const cityLabel = (city || "慢递").slice(0, 6);
   const c = "var(--vermilion)";
-  const font = '"MdjFang","Zhuque Fangsong","FangSong","STFangsong","SimSun",serif';
+  const font =
+    '"MdjFang","Zhuque Fangsong","FangSong","STFangsong","SimSun",serif';
   return (
     <div className="relative flex flex-col items-center" title="官戳">
       {firstDay && (
         <span className="absolute -right-1.5 -top-1.5 z-10 rounded-full bg-vermilion px-1.5 py-0.5 text-[10px] font-bold tracking-wider text-white">
-          首日
+          <UiText text={"首日"} />
         </span>
       )}
-      <svg width={size} height={size * 0.8} viewBox="0 0 150 120" aria-label="官戳">
+      <svg
+        width={size}
+        height={size * 0.8}
+        viewBox="0 0 150 120"
+        aria-label="官戳"
+      >
         <defs>
-          <path id="mdj-top" d="M 33 60 a 55 55 0 0 1 110 0" />
-          <path id="mdj-bot" d="M 33 60 a 55 55 0 0 0 110 0" />
+          <path id={`${stampId}-top`} d="M 33 60 a 55 55 0 0 1 110 0" />
+          <path id={`${stampId}-bottom`} d="M 33 60 a 55 55 0 0 0 110 0" />
         </defs>
 
         {/* 五条正弦水波纹 */}
@@ -43,20 +51,43 @@ export default function Postmark({
         </g>
 
         {/* 圆戳：外圈实线 + 内圈细线 */}
-        <circle cx="88" cy="60" r="55" fill="none" stroke={c} strokeWidth="1.9" />
-        <circle cx="88" cy="60" r="47.5" fill="none" stroke={c} strokeWidth="0.9" opacity="0.45" />
+        <circle
+          cx="88"
+          cy="60"
+          r="55"
+          fill="none"
+          stroke={c}
+          strokeWidth="1.9"
+        />
+        <circle
+          cx="88"
+          cy="60"
+          r="47.5"
+          fill="none"
+          stroke={c}
+          strokeWidth="0.9"
+          opacity="0.45"
+        />
 
         {/* 上环：城市名，顶部中间向两边延伸 */}
         <text fontSize="13" fill={c} letterSpacing="2.5" fontFamily={font}>
-          <textPath href="#mdj-top" startOffset="50%" textAnchor="middle">
+          <textPath
+            href={`#${stampId}-top`}
+            startOffset="50%"
+            textAnchor="middle"
+          >
             {cityLabel}
           </textPath>
         </text>
 
         {/* 下环：邮局 */}
         <text fontSize="12" fill={c} letterSpacing="3" fontFamily={font}>
-          <textPath href="#mdj-bot" startOffset="50%" textAnchor="middle">
-            邮 局
+          <textPath
+            href={`#${stampId}-bottom`}
+            startOffset="50%"
+            textAnchor="middle"
+          >
+            <UiText text={"邮 局"} />
           </textPath>
         </text>
 
@@ -74,7 +105,9 @@ export default function Postmark({
           {dateStr}
         </text>
       </svg>
-      <span className="mt-1 text-xs tracking-wider text-ink-soft">{fmtTime(time)}</span>
+      <span className="mt-1 text-xs tracking-wider text-ink-soft">
+        {fmtTime(time)}
+      </span>
     </div>
   );
 }

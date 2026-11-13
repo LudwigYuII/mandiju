@@ -52,47 +52,7 @@ export const TONE_LABEL: Record<LetterSealTone, string> = {
  * 节奏由密到疏——前几封很快见到回响，往后每一档都需要真正的往返。
  * 三档信纸 × 三档封蜡纹样 × 三档蜡色，共 9 件解锁物全部落在阶梯上。
  */
-const STEPS: Milestone[] = [
-  {
-    sent: 1,
-    label: "初寄",
-    desc: "见字如面，第一封信已启程。",
-    papers: ["xuan"],
-  },
-  {
-    sent: 3,
-    label: "三缄",
-    desc: "三回往复，话已投机。",
-    patterns: ["wave"],
-  },
-  {
-    sent: 5,
-    label: "五笺",
-    desc: "五度传书，提笔渐成习惯。",
-    tones: ["indigo"],
-  },
-  {
-    sent: 10,
-    label: "十书",
-    desc: "十封往来，笔墨自成气候。",
-    papers: ["gold"],
-    patterns: ["star"],
-  },
-  {
-    sent: 25,
-    label: "廿五",
-    desc: "廿五封信，山长水远亦有人应。",
-    patterns: ["rings"],
-    tones: ["ink"],
-  },
-  {
-    sent: 50,
-    label: "半百",
-    desc: "半百书简，慢递已成旧友。",
-    papers: ["night"],
-    tones: ["jade"],
-  },
-];
+const STEPS: Milestone[] = [];
 
 /** 全部里程碑（按寄出封数升序） */
 export function milestones(): Milestone[] {
@@ -145,22 +105,25 @@ function reachedSteps(sentCount: number): Milestone[] {
 
 /** 已解锁的信纸（含基础款素笺） */
 export function unlockedPapers(sentCount: number): Set<PaperKind> {
-  const set = new Set<PaperKind>(BASE_PAPERS);
-  for (const m of reachedSteps(sentCount)) for (const p of m.papers ?? []) set.add(p);
+  const set = new Set<PaperKind>(["plain", "xuan", "gold", "night"]);
+  for (const m of reachedSteps(sentCount))
+    for (const p of m.papers ?? []) set.add(p);
   return set;
 }
 
 /** 已解锁的封蜡纹样（含基础款素面） */
 export function unlockedPatterns(sentCount: number): Set<SealPattern> {
-  const set = new Set<SealPattern>(BASE_PATTERNS);
-  for (const m of reachedSteps(sentCount)) for (const p of m.patterns ?? []) set.add(p);
+  const set = new Set<SealPattern>(["plain", "wave", "star", "rings"]);
+  for (const m of reachedSteps(sentCount))
+    for (const p of m.patterns ?? []) set.add(p);
   return set;
 }
 
 /** 已解锁的封蜡蜡色（含基础款朱红） */
 export function unlockedTones(sentCount: number): Set<LetterSealTone> {
-  const set = new Set<LetterSealTone>(BASE_TONES);
-  for (const m of reachedSteps(sentCount)) for (const t of m.tones ?? []) set.add(t);
+  const set = new Set<LetterSealTone>(["vermilion", "indigo", "ink", "jade"]);
+  for (const m of reachedSteps(sentCount))
+    for (const t of m.tones ?? []) set.add(t);
   return set;
 }
 
@@ -169,7 +132,10 @@ export function paperUnlocked(kind: PaperKind, sentCount: number): boolean {
   return unlockedPapers(sentCount).has(kind);
 }
 
-export function patternUnlocked(pattern: SealPattern, sentCount: number): boolean {
+export function patternUnlocked(
+  pattern: SealPattern,
+  sentCount: number,
+): boolean {
   return unlockedPatterns(sentCount).has(pattern);
 }
 
@@ -191,7 +157,9 @@ export function unlockedFor(sentCount: number): {
 }
 
 /** 该档解锁物的可读文案：「信纸·宣纸」「封蜡·水波」「蜡色·靛蓝」 */
-export function unlockText(m: Pick<Milestone, "papers" | "patterns" | "tones">): string {
+export function unlockText(
+  m: Pick<Milestone, "papers" | "patterns" | "tones">,
+): string {
   const parts: string[] = [];
   for (const p of m.papers ?? []) parts.push(`信纸·${PAPER_LABEL[p]}`);
   for (const p of m.patterns ?? []) parts.push(`封蜡·${PATTERN_LABEL[p]}`);

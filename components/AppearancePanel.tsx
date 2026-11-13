@@ -1,6 +1,8 @@
 "use client";
+import { UiText } from "@/components/UiText";
 
 import { useEffect, useState } from "react";
+import { useLanguage } from "./LanguageProvider";
 
 const THEMES = [
   { id: "light", label: "浅色" },
@@ -19,13 +21,13 @@ const FONTS = [
 export default function AppearancePanel() {
   const [theme, setTheme] = useState("auto");
   const [font, setFont] = useState("default");
-  const [trad, setTrad] = useState(false);
+  const { locale, setLocale } = useLanguage();
+  const trad = locale === "zh-Hant";
 
   useEffect(() => {
     try {
       setTheme(localStorage.getItem("mdj-theme") || "auto");
       setFont(localStorage.getItem("mdj-font") || "default");
-      setTrad(localStorage.getItem("mdj-trad") === "1");
     } catch {}
   }, []);
 
@@ -36,14 +38,16 @@ export default function AppearancePanel() {
     } catch {}
     const dark =
       t === "dark" ||
-      (t === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      (t === "auto" &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches);
     document.documentElement.classList.toggle("dark", dark);
   };
 
   useEffect(() => {
     if (theme !== "auto") return;
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const h = () => document.documentElement.classList.toggle("dark", mq.matches);
+    const h = () =>
+      document.documentElement.classList.toggle("dark", mq.matches);
     h();
     mq.addEventListener("change", h);
     return () => mq.removeEventListener("change", h);
@@ -59,14 +63,14 @@ export default function AppearancePanel() {
   };
 
   const applyTrad = (v: boolean) => {
-    setTrad(v);
-    try {
-      localStorage.setItem("mdj-trad", v ? "1" : "0");
-    } catch {}
-    window.location.reload();
+    setLocale(v ? "zh-Hant" : "zh-Hans");
   };
 
-  const seg = (items: { id: string; label: string }[], sel: string, onPick: (id: string) => void) => (
+  const seg = (
+    items: { id: string; label: string }[],
+    sel: string,
+    onPick: (id: string) => void,
+  ) => (
     <div className="flex flex-wrap gap-2">
       {items.map((it) => (
         <button
@@ -77,7 +81,7 @@ export default function AppearancePanel() {
             sel === it.id ? "!border-vermilion !text-vermilion" : ""
           }`}
         >
-          {it.label}
+          <UiText text={it.label} />
         </button>
       ))}
     </div>
@@ -86,25 +90,37 @@ export default function AppearancePanel() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="mb-2 text-xs font-semibold tracking-[0.18em] text-ink-soft">主题</p>
+        <p className="mb-2 text-xs font-semibold tracking-[0.18em] text-ink-soft">
+          <UiText text={"主题"} />
+        </p>
         {seg(THEMES, theme, applyTheme)}
       </div>
       <div>
-        <p className="mb-2 text-xs font-semibold tracking-[0.18em] text-ink-soft">全站字体</p>
+        <p className="mb-2 text-xs font-semibold tracking-[0.18em] text-ink-soft">
+          <UiText text={"全站字体"} />
+        </p>
         {seg(FONTS, font, applyFont)}
-        <p className="mt-1.5 text-xs text-ink-soft">官戳与私印始终使用楷体/仿宋，不受此项影响</p>
+        <p className="mt-1.5 text-xs text-ink-soft">
+          <UiText text={"官戳与私印始终使用楷体/仿宋，不受此项影响"} />
+        </p>
       </div>
       <div>
-        <p className="mb-2 text-xs font-semibold tracking-[0.18em] text-ink-soft">简体 / 繁体</p>
+        <p className="mb-2 text-xs font-semibold tracking-[0.18em] text-ink-soft">
+          <UiText text={"简体 / 繁体"} />
+        </p>
         {seg(
           [
             { id: "0", label: "简体" },
             { id: "1", label: "繁体" },
           ],
           trad ? "1" : "0",
-          (id) => applyTrad(id === "1")
+          (id) => applyTrad(id === "1"),
         )}
-        <p className="mt-1.5 text-xs text-ink-soft">切换后整站文字（含信件内容）随之转换</p>
+        <p className="mt-1.5 text-xs text-ink-soft">
+          <UiText
+            text={"切换界面文案，信件与作品保留作者原文；不会刷新页面。"}
+          />
+        </p>
       </div>
     </div>
   );

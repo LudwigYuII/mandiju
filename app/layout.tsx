@@ -1,3 +1,7 @@
+import { UiText } from "@/components/UiText";
+
+import { cookies } from "next/headers";
+import LanguageProvider from "@/components/LanguageProvider";
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import "./globals.css";
@@ -11,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f3ecde",
+  themeColor: "#F7F4EC",
 };
 
 const prefsInit = `try{
@@ -30,9 +34,17 @@ const swInit = `try{
   }
 }catch(e){}`;
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const locale =
+    (await cookies()).get("mdj-language")?.value === "zh-Hant"
+      ? "zh-Hant"
+      : "zh-Hans";
   return (
-    <html lang="zh-CN" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: prefsInit }} />
         <script dangerouslySetInnerHTML={{ __html: swInit }} />
@@ -48,37 +60,39 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="apple-touch-icon" href="/assets/logo/A0.png" />
       </head>
       <body className="min-h-screen">
-        <Header />
-        <BetaBanner />
-        <main className="mx-auto w-full px-4 pb-16 pt-6">
-          <div className="page-width">{children}</div>
-        </main>
-        <footer className="border-t border-black/5 pb-8 pt-6 dark:border-white/10">
-          <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-x-5 gap-y-2 px-4 text-xs text-ink-soft">
-            <Link href="/privacy" className="hover:text-ink">
-              隐私政策
-            </Link>
-            <Link href="/download" className="hover:text-ink">
-              下载
-            </Link>
-            <Link href="/about" className="hover:text-ink">
-              关于本站
-            </Link>
-            <Link href="/rules" className="hover:text-ink">
-              社区规则
-            </Link>
-            <Link href="/changelog" className="hover:text-ink">
-              更新日志
-            </Link>
-            <a href="mailto:ycharsenal@163.com" className="hover:text-ink">
-              联系邮箱
-            </a>
-          </div>
-          <p className="mt-3 text-center text-[11px] text-ink-soft/70">
-            慢递局 · 给彼此的信，不着急
-          </p>
-        </footer>
-        <LanguageConverter />
+        <LanguageProvider initialLocale={locale}>
+          <Header />
+          <BetaBanner />
+          <main className="mx-auto w-full px-4 pb-16 pt-6">
+            <div className="page-width">{children}</div>
+          </main>
+          <footer className="border-t border-black/5 pb-8 pt-6 dark:border-white/10">
+            <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-x-5 gap-y-2 px-4 text-xs text-ink-soft">
+              <Link href="/privacy" className="hover:text-ink">
+                <UiText text={"隐私政策"} />
+              </Link>
+              <Link href="/download" className="hover:text-ink">
+                <UiText text={"下载"} />
+              </Link>
+              <Link href="/about" className="hover:text-ink">
+                <UiText text={"关于本站"} />
+              </Link>
+              <Link href="/rules" className="hover:text-ink">
+                <UiText text={"社区规则"} />
+              </Link>
+              <Link href="/changelog" className="hover:text-ink">
+                <UiText text={"更新日志"} />
+              </Link>
+              <a href="mailto:ycharsenal@163.com" className="hover:text-ink">
+                <UiText text={"联系邮箱"} />
+              </a>
+            </div>
+            <p className="mt-3 text-center text-[11px] text-ink-soft/70">
+              <UiText text={"慢递局 · 给彼此的信，不着急"} />
+            </p>
+          </footer>
+          <LanguageConverter />
+        </LanguageProvider>
       </body>
     </html>
   );

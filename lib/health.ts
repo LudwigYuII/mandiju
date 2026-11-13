@@ -120,10 +120,11 @@ export async function getHealthReport(): Promise<HealthReport> {
         "SELECT COUNT(*) AS n FROM replies",
         "SELECT COUNT(*) AS n FROM push_subs",
       ],
-      "read"
+      "read",
     );
     dbMs = Date.now() - t0;
-    const n = (i: number) => Number((results[i]?.rows[0] as { n?: unknown } | undefined)?.n ?? 0);
+    const n = (i: number) =>
+      Number((results[i]?.rows[0] as { n?: unknown } | undefined)?.n ?? 0);
     counts = {
       users: n(0),
       letters: n(1),
@@ -171,7 +172,9 @@ export async function getHealthReport(): Promise<HealthReport> {
       note: "定时任务未把执行时间落库，故只报「未记录」；可在 Vercel → 项目 → Logs 里筛 /api/cron 核对。",
     },
     build: {
-      commit: process.env.VERCEL_GIT_COMMIT_SHA ? process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 7) : null,
+      commit: process.env.VERCEL_GIT_COMMIT_SHA
+        ? process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 7)
+        : null,
       region: process.env.VERCEL_REGION || null,
     },
   };

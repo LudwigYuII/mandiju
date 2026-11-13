@@ -16,20 +16,25 @@ export default function FutureDatePicker({
 }) {
   const now = new Date();
   const minY = now.getFullYear();
-  const maxY = minY + 5;
+  const maxY = minY + 1;
   const years: number[] = [];
   for (let y = minY; y <= maxY; y++) years.push(y);
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
 
   const [open, setOpen] = useState(false);
   const [y, setY] = useState(() => (value ? Number(value.slice(0, 4)) : minY));
-  const [m, setM] = useState(() => (value ? Number(value.slice(5, 7)) : now.getMonth() + 1));
-  const [d, setD] = useState(() => (value ? Number(value.slice(8, 10)) : now.getDate() + 1));
+  const [m, setM] = useState(() =>
+    value ? Number(value.slice(5, 7)) : now.getMonth() + 1,
+  );
+  const [d, setD] = useState(() =>
+    value ? Number(value.slice(8, 10)) : now.getDate() + 1,
+  );
   const wrap = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const h = (e: MouseEvent) => {
-      if (wrap.current && !wrap.current.contains(e.target as Node)) setOpen(false);
+      if (wrap.current && !wrap.current.contains(e.target as Node))
+        setOpen(false);
     };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
@@ -46,7 +51,9 @@ export default function FutureDatePicker({
     setY(yy);
     setM(mm);
     setD(dd);
-    onChange(`${yy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`);
+    onChange(
+      `${yy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`,
+    );
   };
 
   const wheel = (items: number[], sel: number, onPick: (n: number) => void) => (
@@ -60,7 +67,9 @@ export default function FutureDatePicker({
           type="button"
           onClick={() => onPick(n)}
           className={`flex h-10 w-full snap-center items-center justify-center rounded-lg text-[15px] ${
-            n === sel ? "bg-vermilion/10 font-semibold text-vermilion" : "text-ink-soft"
+            n === sel
+              ? "bg-vermilion/10 font-semibold text-vermilion"
+              : "text-ink-soft"
           }`}
         >
           {n}
@@ -86,7 +95,7 @@ export default function FutureDatePicker({
           {wheel(
             Array.from({ length: daysIn(y, m) }, (_, i) => i + 1),
             d,
-            (n) => commit(y, m, n)
+            (n) => commit(y, m, n),
           )}
         </div>
       )}
