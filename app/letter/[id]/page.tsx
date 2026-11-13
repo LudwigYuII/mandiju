@@ -26,6 +26,9 @@ import BurnReader from "@/components/BurnReader";
 import { burnLabel } from "@/lib/burn";
 import { wipeBurn } from "@/lib/burn-db";
 
+import { canReadLetter } from "@/lib/letter-policy";
+import { readableLetter } from "@/lib/access";
+
 export const dynamic = "force-dynamic";
 
 export default async function LetterPage({ params }: { params: Promise<{ id: string }> }) {
@@ -50,8 +53,7 @@ export default async function LetterPage({ params }: { params: Promise<{ id: str
     return (h / 1000) * 3 - 1.5;
   })();
 
-  if (l.recipient_id && !isParty) notFound(); // 私信只对双方可见
-  if (status === "in_transit" && !isParty) notFound(); // 路上的信不对外
+  if (!canReadLetter(l, sess?.uid)) notFound();
 
   // 阅后即焚兜底：倒计时到期即抹除正文（即便对方中途关掉页面）
   let burned = Number(l.burned) === 1;
@@ -204,8 +206,8 @@ export default async function LetterPage({ params }: { params: Promise<{ id: str
 
   let original: { id: string; title: string } | null = null;
   if (l.reply_to) {
-    const o = await db.execute({ sql: "SELECT id, title FROM letters WHERE id=?", args: [String(l.reply_to)] });
-    if (o.rows.length > 0) original = { id: String((o.rows[0] as any).id), title: String((o.rows[0] as any).title) };
+    const o = await readableLetter(String(l.reply_to), sess?.uid);
+    if (o) original = { id: String(o.id), title: String(o.title) };
   }
 
   // 笔友关系：决定显示「回信」还是「加为笔友」
@@ -381,3 +383,4 @@ export default async function LetterPage({ params }: { params: Promise<{ id: str
     </div>
   );
 }
+

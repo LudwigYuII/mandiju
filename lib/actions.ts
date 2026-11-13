@@ -15,6 +15,7 @@ import { canWriteTo } from "./friends";
 import { rateLimit, tooManyText } from "./rate-limit";
 import { BURN_OPTIONS } from "./burn";
 import { wipeBurn } from "./burn-db";
+import { readableLetter, interactiveLetter } from "./access";
 import type { WeatherInfo } from "./weather";
 
 export type ActionState = { error?: string; ok?: boolean };
@@ -209,9 +210,10 @@ export async function createLetterAction(_prev: ActionState, formData: FormData)
   // 回信：校验原信存在
   let replyTitle: string | null = null;
   if (replyTo) {
-    const orig = await db.execute({ sql: "SELECT id, title FROM letters WHERE id=?", args: [replyTo] });
-    if (orig.rows.length === 0) return { error: "原信不存在" };
-    replyTitle = String((orig.rows[0] as any).title);
+    const orig = await readableLetter(replyTo, sess.uid);
+    if (!orig) return { error: "原信不可访问" };
+    if (orig.recipient_id && (!recipientId || ![String(orig.author_id), String(orig.recipient_id)].includes(recipientId))) return { error: "私人回信不能扩大公开范围" };
+    replyTitle = String(orig.title);
   }
 
   const id = crypto.randomUUID();
@@ -287,7 +289,7 @@ export async function createLetterAction(_prev: ActionState, formData: FormData)
   }
 
   // 同题共写：关联主题并解锁当月纪念票
-  if (topicId) {
+  if (topicId && !recipientId) {
     const topic = await getTopicById(topicId);
     if (topic && String(topic.month) === monthKey()) {
       await db.execute({
@@ -378,7 +380,11 @@ export async function addReplyAction(_prev: ActionState, formData: FormData): Pr
   if (!sess) redirect("/login");
   const letterId = needText(formData.get("letterId"));
   const body = needText(formData.get("body"));
-  if (!letterId || !body) return { error: "评论不能为空" };
+  if (!letterId || !body) return { error: "批注不能为空" };
+  if (body.length > 10000) return { error: "批注最多一万字" };
+  if (!(await interactiveLetter(letterId, sess.uid))) return { error: "该信不可批注" };
+  const rl = await rateLimit(`reply:${sess.uid}`, 20, 3600000);
+  if (!rl.ok) return { error: tooManyText(rl.retryAfter) };
   await db.execute({
     sql: "INSERT INTO replies(id, letter_id, author_id, body, created_at) VALUES(?,?,?,?,?)",
     args: [crypto.randomUUID(), letterId, sess.uid, body, Date.now()],
@@ -407,7 +413,7 @@ export async function toggleLikeAction(formData: FormData): Promise<void> {
   const sess = await getSession();
   if (!sess) redirect("/login");
   const letterId = needText(formData.get("letterId"));
-  if (!letterId) return;
+  if (!letterId || !(await interactiveLetter(letterId, sess.uid))) return;
   const existing = await db.execute({
     sql: "SELECT 1 FROM likes WHERE letter_id=? AND user_id=?",
     args: [letterId, sess.uid],
@@ -542,7 +548,7 @@ export async function saveDraftAction(_prev: ActionState, formData: FormData): P
     ? needText(formData.get("paper"))
     : null;
   const vertical = needText(formData.get("vertical")) === "1" ? 1 : null;
-  await db.execute({
+  const saved = await db.execute({
     sql: `INSERT INTO drafts(id, user_id, genre, title, body, postage, stamp_id, recipient, city, weather, image, capsule_date, topic_id, reply_to, burn_seconds, seal_color, seal_pattern, paper, vertical, updated_at)
           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
           ON CONFLICT(id) DO UPDATE SET genre=excluded.genre, title=excluded.title, body=excluded.body,
@@ -551,7 +557,7 @@ export async function saveDraftAction(_prev: ActionState, formData: FormData): P
             capsule_date=excluded.capsule_date, topic_id=excluded.topic_id, reply_to=excluded.reply_to,
             burn_seconds=excluded.burn_seconds, seal_color=excluded.seal_color,
             seal_pattern=excluded.seal_pattern, paper=excluded.paper, vertical=excluded.vertical,
-            updated_at=excluded.updated_at`,
+            updated_at=excluded.updated_at WHERE drafts.user_id=excluded.user_id`,
     args: [
       id, sess.uid, genre, title || null, body || null,
       needText(formData.get("postage")) || null,
@@ -571,6 +577,7 @@ export async function saveDraftAction(_prev: ActionState, formData: FormData): P
       Date.now(),
     ],
   });
+  if (!saved.rowsAffected) return { error: "草稿不存在或不可修改" };
   revalidatePath("/write");
   return { ok: true, draftId: id } as any;
 }
@@ -945,3 +952,4 @@ export async function confirmOnboardAction(): Promise<void> {
   revalidatePath("/");
   redirect("/");
 }
+

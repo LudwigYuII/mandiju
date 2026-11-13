@@ -25,9 +25,9 @@ export default async function MailPage() {
       FROM letters l
       JOIN users ua ON ua.id = l.author_id
       JOIN users ur ON ur.id = l.recipient_id
-      WHERE l.recipient_id IS NOT NULL AND (l.author_id = ? OR l.recipient_id = ?)
+      WHERE l.recipient_id IS NOT NULL AND (l.author_id = ? OR (l.recipient_id = ? AND l.deliver_at <= ?))
       ORDER BY l.deliver_at DESC LIMIT 100`,
-    args: [sess.uid, sess.uid, sess.uid, sess.uid, sess.uid],
+    args: [sess.uid, sess.uid, sess.uid, sess.uid, sess.uid, Date.now()],
   });
 
   const capsules = rows.rows.filter((l: any) => String(l.author_id) === String(l.recipient_id));
@@ -130,3 +130,4 @@ export default async function MailPage() {
     </div>
   );
 }
+

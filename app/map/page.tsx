@@ -13,9 +13,9 @@ export default async function MapPage() {
 
   const cities = await db.execute({
     sql: `SELECT city, COUNT(*) AS n FROM letters
-          WHERE city IS NOT NULL AND city != '' AND (author_id = ? OR recipient_id = ?)
+          WHERE city IS NOT NULL AND city != '' AND (author_id = ? OR (recipient_id = ? AND deliver_at <= ?))
           GROUP BY city ORDER BY n DESC`,
-    args: [sess.uid, sess.uid],
+    args: [sess.uid, sess.uid, Date.now()],
   });
 
   return (
@@ -37,3 +37,4 @@ export default async function MapPage() {
     </div>
   );
 }
+

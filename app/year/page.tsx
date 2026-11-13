@@ -40,8 +40,8 @@ export default async function YearPage() {
   const topGenre = Object.entries(genreCount).sort((a, b) => b[1] - a[1])[0];
 
   const received = await db.execute({
-    sql: `SELECT COUNT(*) AS n FROM letters WHERE recipient_id = ? AND sent_at >= ? AND sent_at < ?`,
-    args: [sess.uid, start, end],
+    sql: `SELECT COUNT(*) AS n FROM letters WHERE recipient_id = ? AND sent_at >= ? AND sent_at < ? AND deliver_at <= ?`,
+    args: [sess.uid, start, end, Date.now()],
   });
 
   const first = rows.length
@@ -99,3 +99,4 @@ export default async function YearPage() {
     </div>
   );
 }
+
