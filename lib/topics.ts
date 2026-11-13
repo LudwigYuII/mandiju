@@ -42,7 +42,7 @@ export async function currentHost(): Promise<{
   pen: string;
 } | null> {
   const users = await db.execute(
-    "SELECT id, pen_name FROM users ORDER BY created_at ASC",
+    "SELECT id, pen_name FROM public_users ORDER BY created_at ASC",
   );
   if (users.rows.length === 0) return null;
   const today = siteDateParts();

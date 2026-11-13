@@ -46,7 +46,7 @@ export default async function OnboardPage() {
   const sess = await getSession();
   if (!sess) redirect("/login");
   const r = await db.execute({
-    sql: "SELECT onboarded_at FROM users WHERE id=?",
+    sql: "SELECT onboarded_at FROM public_users WHERE id=?",
     args: [sess.uid],
   });
   if (Number((r.rows[0] as any)?.onboarded_at ?? 0)) redirect("/");
@@ -70,7 +70,7 @@ export default async function OnboardPage() {
           <p className="mt-4 text-[15px] leading-relaxed">
             <UiText
               text={
-                "慢递局是一个属于站长与好友们的小圈子笔友网站。这里没有算法、没有排行榜， 只有书信、邮戳、邮票与等待。每个人用笔名写信，信在路上慢慢走——急递十分钟， 慢信可以走上一两天。你可以盖官戳、贴邮票、参加每月的同题共写， 也可以写一封信寄给未来的自己。"
+                "慢递局是一个属于站长与好友们的小圈子笔友网站。这里没有算法、没有排行榜， 只有书信、邮戳、邮票与等待。每个人用笔名写信，信在路上慢慢走——普通信件一至二十四小时送达。你可以盖官戳、贴邮票、参加每月的同题共写， 也可以写一封信寄给未来的自己。"
               }
             />
           </p>
@@ -138,7 +138,7 @@ export default async function OnboardPage() {
       <Reveal delay={200}>
         <section className="card glass p-6">
           <h2 className="text-base font-semibold tracking-tight">
-            <UiText text={"邀请码与「文」"} />
+            <UiText text={"荐帖与往来"} />
           </h2>
           <ul className="mt-3 space-y-2.5 text-sm leading-relaxed text-ink-soft">
             <li>
@@ -149,7 +149,7 @@ export default async function OnboardPage() {
             <li>
               <UiText
                 text={
-                  "「文」是局里的邮资：急递 100 文、平信 50 文、慢信 20 文；注册赠 500 文， 每天登录还发 300 文，够你慢慢写。"
+                  "往来不设邮资、积分或登录奖励。普通信件由驿马在一至二十四小时内送达。"
                 }
               />
             </li>

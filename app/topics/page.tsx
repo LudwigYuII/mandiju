@@ -29,7 +29,7 @@ export default async function TopicsPage() {
 
   const pool = await db.execute(`
     SELECT tp.id, tp.title, tp.proposer_id, u.pen_name FROM topic_pool tp
-    JOIN users u ON u.id = tp.proposer_id
+    JOIN public_users u ON u.id = tp.proposer_id
     WHERE tp.status = 'pending' ORDER BY tp.created_at DESC LIMIT 30`);
 
   let participants: { rows: any[] } = { rows: [] };
@@ -39,7 +39,7 @@ export default async function TopicsPage() {
       sql: `SELECT u.pen_name, u.avatar_id, u.bg_id, u.seal_text, l.id AS letter_id, l.title AS letter_title
             FROM topic_letters tl
             JOIN letters l ON l.id = tl.letter_id
-            JOIN users u ON u.id = l.author_id
+            JOIN public_users u ON u.id = l.author_id
             WHERE tl.topic_id = ? AND l.recipient_id IS NULL AND l.moderation_hidden=0 AND l.deliver_at <= ?
               AND (l.burn_seconds IS NULL OR l.burn_seconds = 0)
             ORDER BY l.deliver_at ASC`,
@@ -47,7 +47,7 @@ export default async function TopicsPage() {
     });
     hostUser = (
       await db.execute({
-        sql: "SELECT pen_name, seal_text FROM users WHERE id=?",
+        sql: "SELECT pen_name, seal_text FROM public_users WHERE id=?",
         args: [String(topic.host_id)],
       })
     ).rows[0] as any;
@@ -56,7 +56,7 @@ export default async function TopicsPage() {
   const me = sess
     ? ((
         await db.execute({
-          sql: "SELECT role FROM users WHERE id=?",
+          sql: "SELECT role FROM public_users WHERE id=?",
           args: [sess.uid],
         })
       ).rows[0] as any)

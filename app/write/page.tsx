@@ -36,7 +36,7 @@ export default async function WritePage({
     if (!row) notFound();
     const author = (
       await db.execute({
-        sql: "SELECT pen_name FROM users WHERE id=?",
+        sql: "SELECT pen_name FROM public_users WHERE id=?",
         args: [String(row.author_id)],
       })
     ).rows[0];
@@ -48,11 +48,11 @@ export default async function WritePage({
   }
 
   const [me, penpals, stamps, drafts, sent] = await Promise.all([
-    db.execute({ sql: "SELECT * FROM users WHERE id=?", args: [sess.uid] }),
+    db.execute({ sql: "SELECT * FROM public_users WHERE id=?", args: [sess.uid] }),
     getPenpals(sess.uid),
     availableStamps(sess.uid),
     db.execute({
-      sql: "SELECT * FROM drafts WHERE user_id=? ORDER BY updated_at DESC LIMIT 20",
+      sql: "SELECT d.*,COALESCE(p.pen_name,d.recipient) AS display_recipient FROM drafts d LEFT JOIN public_users p ON p.id=d.recipient_id WHERE d.user_id=? ORDER BY d.updated_at DESC LIMIT 20",
       args: [sess.uid],
     }),
     sentLetterCount(sess.uid),
@@ -60,7 +60,7 @@ export default async function WritePage({
   const meRow = me.rows[0] as any;
 
   return (
-    <div className="space-y-6">
+    <div className="writing-room space-y-6">
       <h1 className="rise text-3xl font-semibold tracking-tight">
         <UiText text={"写信"} />
       </h1>
@@ -69,6 +69,7 @@ export default async function WritePage({
         mySeal={String(meRow.seal_text || String(meRow.pen_name)[0] || "印")}
         penpals={penpals.map((p) => ({
           pen: p.pen,
+          retreatUntil: p.retreatUntil,
           avatarId: p.avatarId,
           bgId: p.bgId,
           via: p.via,
@@ -91,7 +92,7 @@ export default async function WritePage({
           body: String(d.body ?? ""),
           postage: String(d.postage ?? ""),
           stampId: String(d.stamp_id ?? ""),
-          recipient: String(d.recipient ?? ""),
+          recipient: String(d.display_recipient ?? ""),
           city: String(d.city ?? ""),
           weather: String(d.weather ?? ""),
           image: String(d.image ?? ""),

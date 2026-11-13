@@ -14,6 +14,8 @@ import SealEditor from "@/components/SealEditor";
 import ProfileAvatarEditor from "@/components/ProfileAvatarEditor";
 import AppearancePanel from "@/components/AppearancePanel";
 import PushToggle from "@/components/PushToggle";
+import IdentityForm from "@/components/IdentityForm";
+import { siteDateKey } from "@/lib/time";
 import BirthdayEditor from "@/components/BirthdayEditor";
 
 import { updateMailPreferenceAction } from "@/lib/actions";
@@ -35,13 +37,13 @@ export default async function SettingsPage() {
 
   const inbox = await db.execute({
     sql: `SELECT l.*, ua.pen_name AS peer_pen, ua.seal_text AS peer_seal
-          FROM letters l JOIN users ua ON ua.id = l.author_id
+          FROM letters l JOIN public_users ua ON ua.id = l.author_id
           WHERE l.recipient_id = ? AND l.deliver_at <= ? ORDER BY l.deliver_at DESC LIMIT 5`,
     args: [sess.uid, Date.now()],
   });
   const outbox = await db.execute({
     sql: `SELECT l.*, ur.pen_name AS peer_pen, ur.seal_text AS peer_seal
-          FROM letters l JOIN users ur ON ur.id = l.recipient_id
+          FROM letters l JOIN public_users ur ON ur.id = l.recipient_id
           WHERE l.author_id = ? AND l.recipient_id IS NOT NULL
           ORDER BY l.deliver_at DESC LIMIT 5`,
     args: [sess.uid],
@@ -51,8 +53,8 @@ export default async function SettingsPage() {
     ? await db.execute(`
         SELECT i.code, i.created_at, i.used_by, uc.pen_name AS creator, uu.pen_name AS used_by_pen
         FROM invites i
-        LEFT JOIN users uc ON uc.id = i.created_by
-        LEFT JOIN users uu ON uu.id = i.used_by
+        LEFT JOIN public_users uc ON uc.id = i.created_by
+        LEFT JOIN public_users uu ON uu.id = i.used_by
         ORDER BY i.created_at DESC LIMIT 100`)
     : await db.execute({
         sql: "SELECT code, created_at, used_by FROM invites WHERE created_by=? ORDER BY created_at DESC",
@@ -66,14 +68,14 @@ export default async function SettingsPage() {
       </h1>
       <div className="card glass flex items-center gap-4 p-5">
         <Avatar
-          pen={String(me.pen_name)}
+          pen={String(me.literary_name || "未题书友")}
           avatarId={String(me.avatar_id)}
           bgId={String(me.bg_id)}
           size={64}
         />
         <div>
           <div className="flex items-center gap-1.5 text-lg font-bold">
-            {String(me.pen_name)}
+            {String(me.literary_name || "未题书友")}
             <Seal char={String(me.seal_text || me.pen_name[0])} size={22} />
           </div>
           <div className="text-xs text-ink-soft">
@@ -83,6 +85,7 @@ export default async function SettingsPage() {
         </div>
       </div>
 
+      <section className="card p-6"><IdentityForm name={String(me.literary_name || "")} until={Number(me.retreat_until)>Date.now()?siteDateKey(new Date(Number(me.retreat_until))):""} style={String(me.seal_style)} showReferrer={!!Number(me.show_referrer)} /></section>
       <section className="card p-5">
         <form action={updateMailPreferenceAction} className="space-y-3">
           <label className="flex gap-3 items-center">
@@ -198,23 +201,13 @@ export default async function SettingsPage() {
         </p>
         <div className="mt-4">
           <ProfileAvatarEditor
-            pen={String(me.pen_name)}
+            pen={String(me.literary_name || "未题书友")}
             currentAvatar={String(me.avatar_id)}
             currentBg={String(me.bg_id)}
             avatars={manifest.avatars as any[]}
             backgrounds={manifest.backgrounds as any[]}
           />
         </div>
-      </section>
-
-      <section className="card glass p-5">
-        <h2 className="text-sm font-semibold tracking-widest">
-          <UiText text={"私印"} />
-        </h2>
-        <p className="mt-1 text-xs text-ink-soft">
-          <UiText text={"一至两个汉字，盖在你寄出的每封信上。"} />
-        </p>
-        <SealEditor current={String(me.seal_text || me.pen_name[0])} />
       </section>
 
       <section className="card glass p-5">
@@ -251,7 +244,7 @@ export default async function SettingsPage() {
 
       <section className="card glass p-5">
         <h2 className="text-sm font-semibold tracking-widest">
-          <UiText text={isAdmin ? "站长工具 · 邀请码管理" : "我的邀请码"} />
+          <UiText text={isAdmin ? "站长工具 · 荐帖管理" : "我的荐帖"} />
         </h2>
         <p className="mt-1 text-xs text-ink-soft">
           <UiText
@@ -265,7 +258,7 @@ export default async function SettingsPage() {
         {isAdmin && <GenerateInvites />}
         {invites.rows.length === 0 ? (
           <p className="mt-3 text-sm text-ink-soft">
-            <UiText text={"还没有邀请码。"} />
+            <UiText text={"尚无荐帖。"} />
           </p>
         ) : (
           <ul className="mt-3 space-y-2">

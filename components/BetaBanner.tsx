@@ -24,10 +24,10 @@ export default function BetaBanner() {
   if (hidden) return null;
 
   return (
-    <div className="relative bg-vermilion/95 px-10 py-2 text-center text-xs leading-relaxed text-white">
+    <div className="relative bg-paper2 !text-ink-soft border-b border-black/5 px-10 py-2 text-center text-xs leading-relaxed text-white">
       <span>
         <UiText
-          text={"本站内测中（v1.8）。如遇问题，请致函：ycharsenal@163.com。"}
+          text={"本站内测中。如遇问题，请致函：ycharsenal@163.com。"}
         />
       </span>{" "}
       <a href="/changelog" className="underline underline-offset-2">

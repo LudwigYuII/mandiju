@@ -23,7 +23,7 @@ export default async function SearchPage({
         SELECT l.*, u.pen_name, u.avatar_id, u.bg_id, u.seal_text,
           (SELECT COUNT(*) FROM likes k WHERE k.letter_id = l.id) AS likes,
           (SELECT COUNT(*) FROM replies r WHERE r.letter_id = l.id) AS replies
-        FROM letters l JOIN users u ON u.id = l.author_id
+        FROM letters l JOIN public_users u ON u.id = l.author_id
         WHERE l.recipient_id IS NULL AND l.moderation_hidden=0 AND l.deliver_at <= ?
           AND (l.title LIKE ? ESCAPE '\\' OR l.body LIKE ? ESCAPE '\\' OR u.pen_name LIKE ? ESCAPE '\\')
         ORDER BY l.deliver_at DESC LIMIT 50`,

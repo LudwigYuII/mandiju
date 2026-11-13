@@ -32,19 +32,19 @@ export default async function PrintPage({
     heading = "慢递局 · 公开书信集";
     letters = await db.execute(
       `
-      SELECT l.*, u.pen_name, u.seal_text FROM letters l JOIN users u ON u.id = l.author_id
+      SELECT l.*, u.pen_name, u.seal_text FROM letters l JOIN public_users u ON u.id = l.author_id
       WHERE l.recipient_id IS NULL AND l.moderation_hidden=0 AND l.deliver_at <= ? ORDER BY l.deliver_at ASC`,
       [Date.now()],
     );
   } else if (scope === "with" && withPen) {
     const peer = await db.execute({
-      sql: "SELECT id, pen_name FROM users WHERE pen_name=?",
+      sql: "SELECT id, pen_name FROM public_users WHERE pen_name=?",
       args: [withPen],
     });
     if (peer.rows.length === 0) redirect("/print?scope=mine");
     heading = `与 ${withPen} 的往来书信集`;
     letters = await db.execute({
-      sql: `SELECT l.*, u.pen_name, u.seal_text FROM letters l JOIN users u ON u.id = l.author_id
+      sql: `SELECT l.*, u.pen_name, u.seal_text FROM letters l JOIN public_users u ON u.id = l.author_id
             WHERE ((l.author_id = ? AND l.recipient_id = ?) OR (l.author_id = ? AND l.recipient_id = ?))
               AND l.deliver_at <= ?
               AND (l.burn_seconds IS NULL OR l.burn_seconds = 0)
@@ -59,7 +59,7 @@ export default async function PrintPage({
     });
   } else {
     letters = await db.execute({
-      sql: `SELECT l.*, u.pen_name, u.seal_text FROM letters l JOIN users u ON u.id = l.author_id
+      sql: `SELECT l.*, u.pen_name, u.seal_text FROM letters l JOIN public_users u ON u.id = l.author_id
             WHERE l.author_id = ? AND l.deliver_at <= ?
               AND (l.burn_seconds IS NULL OR l.burn_seconds = 0)
             ORDER BY l.deliver_at ASC`,

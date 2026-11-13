@@ -48,6 +48,28 @@ export async function upgradeSchema(db: Client) {
         args: [Date.now()],
       });
     }
+    const second = (await tx.execute("SELECT version FROM schema_migrations WHERE version=2")).rows.length;
+    if (!second) {
+      for (const [table,col,ddl] of [
+        ["users","literary_name","TEXT"], ["users","literary_key","TEXT"],
+        ["users","seal_style","TEXT NOT NULL DEFAULT 'yang'"],
+        ["users","retreat_until","INTEGER NOT NULL DEFAULT 0"],
+        ["users","show_referrer","INTEGER NOT NULL DEFAULT 0"],
+        ["letters","original_deliver_at","INTEGER"], ["drafts","recipient_id","TEXT"]
+      ]) {
+        const cols = (await tx.execute(`PRAGMA table_info(${table})`)).rows;
+        if (!cols.some(c => String(c.name) === col)) await tx.execute(`ALTER TABLE ${table} ADD COLUMN ${col} ${ddl}`);
+      }
+      await tx.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_literary_key ON users(literary_key)");
+      const draftCols = (await tx.execute('PRAGMA table_info(drafts)')).rows;
+      if (draftCols.some(c=>String(c.name)==='recipient')) await tx.execute("UPDATE drafts SET recipient_id=(SELECT id FROM users WHERE users.pen_name=drafts.recipient) WHERE recipient_id IS NULL AND recipient IS NOT NULL");
+      await tx.execute({sql:"INSERT INTO schema_migrations(version,applied_at) VALUES(2,?)",args:[Date.now()]});
+    }
+      const cols = (await tx.execute("PRAGMA table_info(users)")).rows.map(c => String(c.name));
+      const select = cols.map(c => c === 'pen_name'
+        ? "COALESCE(literary_name, '未题书友·' || rowid) AS pen_name"
+        : c === 'seal_text' ? "CASE WHEN literary_name IS NULL THEN '印' WHEN seal_style='yin' THEN 'yin:' || literary_name ELSE literary_name END AS seal_text" : '"' + c + '"').join(',');
+      await tx.execute(`CREATE VIEW IF NOT EXISTS public_users AS SELECT ${select} FROM users`);
     await tx.commit();
   } catch (e) {
     await tx.rollback();

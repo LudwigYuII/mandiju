@@ -21,7 +21,7 @@ export async function getSession(): Promise<Session | null> {
     if (typeof payload.uid !== "string") return null;
     const u = (
       await db.execute({
-        sql: "SELECT pen_name, banned, auth_version FROM users WHERE id=?",
+        sql: "SELECT pen_name, banned, auth_version FROM public_users WHERE id=?",
         args: [payload.uid],
       })
     ).rows[0];
