@@ -533,8 +533,9 @@ export async function addReplyAction(
   const body = needText(formData.get("body"));
   if (!letterId || !body) return { error: "批注不能为空" };
   if (body.length > 10000) return { error: "批注最多一万字" };
-  if (!(await interactiveLetter(letterId, sess.uid)))
-    return { error: "该信不可批注" };
+  const replyTarget=await interactiveLetter(letterId,sess.uid);
+  if (!replyTarget) return {error:"该信不可批注"};
+  if(!replyTarget.recipient_id) return {error:"公开作品请以题跋回应，由作者收录后展示"};
   const rl = await rateLimit(`reply:${sess.uid}`, 20, 3600000);
   if (!rl.ok) return { error: tooManyText(rl.retryAfter) };
   await db.execute({

@@ -184,3 +184,36 @@ test(
   assert.ok(anonymous.status===307 || /NEXT_REDIRECT;replace;\/login;307|http-equiv="refresh" content="0;url=\/login"/.test(anonymous.text));
   },
 );
+
+test('real literary pages and form actions protect scroll invitation and colophon review boundaries',{skip:!origin},async()=>{
+  async function submit(path,id,op,values){
+    const {text}=await page(path,id);
+    const form=[...text.matchAll(/<form\b[^>]*>[\s\S]*?<\/form>/g)].map(m=>m[0]).find(x=>x.includes(`name="op" value="${op}"`));
+    assert.ok(form,`${op} form should render`);
+    const decode=s=>s.replace(/&quot;/g,'"').replace(/&#x27;|&#39;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
+    const data=new FormData();for(const m of form.matchAll(/<input\b[^>]*>/g)){const name=m[0].match(/name="([^"]*)"/)?.[1],value=m[0].match(/value="([^"]*)"/)?.[1]||'';if(name)data.append(decode(name),decode(value));}
+    for(const [k,v] of Object.entries(values))data.set(k,v);
+    const r=await fetch(origin+path,{method:'POST',headers:{cookie:cookie(id),origin},body:data,redirect:'manual'});assert.ok(r.status<400,op);return r;
+  }
+  const home=await page('/literature');assert.ok(home.text.includes('PUBLIC_SCROLL_TITLE'));assert.ok(!home.text.includes('PRIVATE_SCROLL_TITLE'));
+  for(const id of [null,'fixture-c'])for(const route of ['/literature/fixture-private-scroll','/works/fixture-private-work']){const r=await page(route,id);assert.ok(!r.text.includes('PRIVATE_WORK_BODY'));assert.ok(!r.text.includes('PRIVATE_SCROLL_TITLE'));}
+  const invited=await page('/literature/fixture-private-scroll','fixture-b');assert.ok(invited.text.includes('PRIVATE_SCROLL_TITLE'));assert.ok(!invited.text.includes('PRIVATE_WORK_BODY'));
+  await submit('/literature/fixture-private-scroll','fixture-b','join',{consent:'on'});
+  assert.ok((await page('/works/fixture-private-work','fixture-b')).text.includes('PRIVATE_WORK_BODY'));
+  await submit('/literature/fixture-private-scroll','fixture-b','append',{title:'和作题',body:'PRIVATE_APPENDED_BODY',consent:'on'});
+  assert.ok((await page('/literature/fixture-private-scroll','fixture-a')).text.includes('PRIVATE_APPENDED_BODY'));
+  assert.ok(!(await page('/literature/fixture-private-scroll','fixture-c')).text.includes('PRIVATE_APPENDED_BODY'));
+  await submit('/works/fixture-public-work','fixture-b','colophon',{body:'PENDING_LITERARY_NOTE',consent:'on'});
+  assert.ok(!(await page('/works/fixture-public-work')).text.includes('PENDING_LITERARY_NOTE'));
+  assert.ok((await page('/works/fixture-public-work','fixture-a')).text.includes('PENDING_LITERARY_NOTE'));
+  await submit('/works/fixture-public-work','fixture-a','collect',{});
+  assert.ok((await page('/works/fixture-public-work')).text.includes('PENDING_LITERARY_NOTE'));
+  await submit('/works/fixture-public-work','fixture-b','withdraw_note',{});
+  assert.ok(!(await page('/works/fixture-public-work')).text.includes('PENDING_LITERARY_NOTE'));
+  assert.ok(!(await page('/works/fixture-public-work','fixture-a')).text.includes('PENDING_LITERARY_NOTE'));
+  // Real create action defaults to a private scope and redirects to the newly committed scroll.
+  const created=await submit('/literature/new','fixture-c','create',{title:'NEW_PRIVATE_SCROLL_TITLE',body:'NEW_PRIVATE_SCROLL_BODY',capacity:'12',consent:'on'});
+  const location=created.headers.get('location');assert.match(location,/^\/literature\//);
+  assert.ok((await page(location,'fixture-c')).text.includes('NEW_PRIVATE_SCROLL_BODY'));
+  assert.ok(!(await page(location)).text.includes('NEW_PRIVATE_SCROLL_BODY'));
+});

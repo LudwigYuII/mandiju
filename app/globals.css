@@ -666,3 +666,10 @@ textarea.input {line-height:1.95;padding:1rem;}
 .reading-room {max-width:48rem;margin-inline:auto;line-height:1.95;}
 .reading-room h1 {font-weight:400;line-height:1.6;}
 .reading-room p {overflow-wrap:anywhere;}
+
+/* Quiet literary scrolls: horizontal by choice, ordinary stacked reading remains available. */
+.literary-scroll {display:flex;gap:1.5rem;overflow-x:auto;scroll-snap-type:x proximity;padding-block:1rem;}
+.literary-scroll > article {flex:0 0 min(85vw,32rem);scroll-snap-align:start;}
+.literary-annotation {position:relative;display:inline;}
+.literary-note {position:fixed;z-index:60;bottom:1rem;left:max(1rem,calc((100vw - 42rem)/2));right:max(1rem,calc((100vw - 42rem)/2));display:block;max-height:40vh;overflow:auto;padding:1rem;border:1px solid #D8D0C1;background:var(--paper,#F7F4EC);color:var(--ink,#292722);box-shadow:0 .5rem 1.5rem #0001;writing-mode:horizontal-tb;font-size:.875rem;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere;}
+.dark .literary-note {background:#292722;color:#F7F4EC;}
