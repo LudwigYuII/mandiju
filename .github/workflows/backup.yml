@@ -3,6 +3,15 @@ on:
   schedule:
     - cron: "0 19 * * *"
   workflow_dispatch:
+    inputs:
+      operation:
+        description: Verified rollout operation
+        type: choice
+        default: backup
+        options:
+          - backup
+          - migrate
+          - retire
 permissions:
   contents: read
 concurrency:
@@ -44,6 +53,32 @@ jobs:
           R2_PRIVATE_BUCKET: ${{ secrets.R2_PRIVATE_BUCKET }}
           R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
         run: node --require tsx/cjs tools/export-media-backup.cjs backups
+      - name: Verify isolated database and attachment restore
+        env:
+          MDJ_RESTORE_DB: file:/tmp/mandiju-restore.db
+        run: |
+          set -euo pipefail
+          snapshot="$(find backups -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+          node tools/restore-backup.mjs "$snapshot"
+          MDJ_DB=file:/tmp/mandiju-restore.db MDJ_PRIVATE_STORAGE=/tmp/mandiju-restore-media node --require tsx/cjs tools/restore-media-backup.cjs "$snapshot"
+      - name: Apply verified additive migration
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.operation != 'backup' }}
+        env:
+          MDJ_DB: ${{ secrets.MDJ_DB }}
+          MDJ_DB_AUTH_TOKEN: ${{ secrets.MDJ_DB_AUTH_TOKEN }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_PRIVATE_BUCKET: ${{ secrets.R2_PRIVATE_BUCKET }}
+          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+          OPERATION: ${{ inputs.operation }}
+        run: |
+          set -euo pipefail
+          node --require tsx/cjs tools/migrate-private-media.cjs --apply --backup-verified
+          if [ "$OPERATION" = retire ]; then
+            node --require tsx/cjs tools/migrate-private-media.cjs --apply --backup-verified --retire-public
+          fi
       - name: Encrypt before upload
         env:
           BACKUP_CERT: ${{ secrets.MDJ_BACKUP_RECIPIENT_CERT }}
