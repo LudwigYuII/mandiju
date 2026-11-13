@@ -46,14 +46,19 @@
         const base = (process.env.R2_PUBLIC_URL || "").replace(/\/+$/, "");
         if (/^uploads\/[a-zA-Z0-9_.-]+$/.test(ref))
           bytes = await fs.readFile(path.join(process.cwd(), "public", ref));
-        else if (base && ref.startsWith(base + "/uploads/")) {
-          const response = await fetch(ref, {
-            signal: AbortSignal.timeout(15000),
-          });
-          if (!response.ok)
-            throw new Error("Legacy attachment could not be read");
-          bytes = Buffer.from(await response.arrayBuffer());
-        } else {
+    else if (process.env.R2_BUCKET && /^https:\/\//.test(ref)) {
+      const url = new URL(ref);
+      if (!/^\/uploads\/[a-zA-Z0-9_.-]+$/.test(url.pathname) || url.search || url.hash)
+        throw new Error("Unsupported legacy object key");
+      const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3");
+      const client = new S3Client({
+        region: "auto",
+        endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+        credentials: { accessKeyId: process.env.R2_ACCESS_KEY_ID, secretAccessKey: process.env.R2_SECRET_ACCESS_KEY }
+      });
+      const response = await client.send(new GetObjectCommand({ Bucket: process.env.R2_BUCKET, Key: url.pathname.slice(1) }));
+      bytes = Buffer.from(await response.Body.transformToByteArray());
+    } else {
           unsupported++;
           continue;
         }
@@ -133,7 +138,8 @@
             });
         else {
           const base = (process.env.R2_PUBLIC_URL || "").replace(/\/+$/, "");
-          const key = ref.slice(base.length + 1);
+          const key = new URL(ref).pathname.slice(1);
+          if (!new RegExp("^uploads/[a-zA-Z0-9_.-]+$").test(key)) throw new Error("Invalid retirement key");
           const client = new S3Client({
             region: "auto",
             endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
