@@ -1,8 +1,21 @@
 import { db } from "./db";
 
-export type NotifyType = "letter_in" | "reply" | "like" | "stamp" | "friend" | "birthday" | "festival" | "announce";
+export type NotifyType =
+  | "letter_in"
+  | "reply"
+  | "like"
+  | "stamp"
+  | "friend"
+  | "birthday"
+  | "festival"
+  | "announce";
 
-export async function notify(userId: string, type: NotifyType, body: string, link?: string) {
+export async function notify(
+  userId: string,
+  type: NotifyType,
+  body: string,
+  link?: string,
+) {
   await db.execute({
     sql: "INSERT INTO notifications(id, user_id, type, body, link, created_at) VALUES(?,?,?,?,?,?)",
     args: [crypto.randomUUID(), userId, type, body, link ?? null, Date.now()],

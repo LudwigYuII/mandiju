@@ -29,4 +29,10 @@ export function weatherLabel(code: number | null | undefined): string {
   return "晴";
 }
 
-export type WeatherInfo = { city: string; temp: number | null; code: number | null; gust: number | null; manual: boolean };
+export type WeatherInfo = {
+  city: string;
+  temp: number | null;
+  code: number | null;
+  gust: number | null;
+  manual: boolean;
+};

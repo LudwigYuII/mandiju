@@ -19,7 +19,10 @@ export async function POST(req: Request) {
   }
   const endpoint = typeof body?.endpoint === "string" ? body.endpoint : "";
   if (!endpoint) {
-    return Response.json({ ok: false, error: "缺少 endpoint" }, { status: 400 });
+    return Response.json(
+      { ok: false, error: "缺少 endpoint" },
+      { status: 400 },
+    );
   }
 
   await db.execute({

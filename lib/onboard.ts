@@ -7,7 +7,10 @@ import { getSession } from "./auth";
 export async function gateOnboard() {
   const sess = await getSession();
   if (!sess) return null;
-  const r = await db.execute({ sql: "SELECT onboarded_at FROM users WHERE id=?", args: [sess.uid] });
+  const r = await db.execute({
+    sql: "SELECT onboarded_at FROM users WHERE id=?",
+    args: [sess.uid],
+  });
   if (!Number((r.rows[0] as any)?.onboarded_at ?? 0)) redirect("/onboard");
   return sess;
 }

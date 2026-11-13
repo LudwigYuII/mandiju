@@ -19,6 +19,8 @@ self.addEventListener("push", (event) => {
   const title = data.title || "慢递局";
   const options = {
     body: data.body || "",
+    tag: data.tag || "mandiju-letter",
+    renotify: false,
     icon: data.icon || "/assets/logo/A0.png",
     badge: data.badge || "/assets/logo/A0.png",
     data: { link: data.link || "/" },
@@ -32,3 +34,4 @@ self.addEventListener("notificationclick", (event) => {
     (event.notification.data && event.notification.data.link) || "/";
   event.waitUntil(self.clients.openWindow(link));
 });
+

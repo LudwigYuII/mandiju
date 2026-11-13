@@ -2,13 +2,17 @@ import { createClient } from "@libsql/client";
 import fs from "fs";
 import path from "path";
 import bcrypt from "bcryptjs";
+import { upgradeSchema } from "./schema-upgrades";
 import manifest from "@/data/manifest.json";
 
 const isBuild = process.env.NEXT_PHASE === "phase-production-build";
 
 const rawDb = process.env.MDJ_DB;
 const isRemote =
-  !!rawDb && (rawDb.startsWith("libsql://") || rawDb.startsWith("https://") || rawDb.startsWith("wss://"));
+  !!rawDb &&
+  (rawDb.startsWith("libsql://") ||
+    rawDb.startsWith("https://") ||
+    rawDb.startsWith("wss://"));
 
 const localPath = rawDb || path.join(process.cwd(), "data", "local.db");
 
@@ -18,7 +22,9 @@ if (!isRemote && !isBuild) {
 
 export const db = isBuild
   ? // 构建阶段：使用本地临时库，绝不连接远程（Next 构建会评估 route handler 模块）
-    createClient({ url: `file:${path.join(process.cwd(), "data", "build-phase.db")}` })
+    createClient({
+      url: `file:${path.join(process.cwd(), "data", "build-phase.db")}`,
+    })
   : createClient({
       url: isRemote ? rawDb! : `file:${localPath}`,
       authToken: process.env.MDJ_DB_AUTH_TOKEN || undefined,
@@ -28,8 +34,13 @@ let ready: Promise<void> | null = null;
 
 export function waitDb(): Promise<void> {
   // 构建阶段绝不碰数据库（Next 构建时可能评估 route handler）
-  if (process.env.NEXT_PHASE === "phase-production-build") return Promise.resolve();
-  if (!ready) ready = init();
+  if (process.env.NEXT_PHASE === "phase-production-build")
+    return Promise.resolve();
+  if (!ready)
+    ready = init().catch((error) => {
+      ready = null;
+      throw error;
+    });
   return ready;
 }
 
@@ -37,7 +48,12 @@ async function ensureColumn(table: string, col: string, ddl: string) {
   const info = await db.execute(`PRAGMA table_info(${table})`);
   const names = info.rows.map((r: any) => String(r.name));
   if (!names.includes(col)) {
-    await db.execute(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+    try {
+      await db.execute(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+    } catch (error) {
+      const current = await db.execute(`PRAGMA table_info(${table})`);
+      if (!current.rows.some((r) => String(r.name) === col)) throw error;
+    }
   }
 }
 
@@ -214,35 +230,63 @@ async function init() {
   }
 
   // 迁移：为已有表补列
-  await ensureColumn("users", "seal_text", "seal_text TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(
+    "users",
+    "seal_text",
+    "seal_text TEXT NOT NULL DEFAULT ''",
+  );
   await ensureColumn("users", "coins", "coins INTEGER NOT NULL DEFAULT 500");
   await ensureColumn("users", "last_coin_at", "last_coin_at INTEGER");
   await ensureColumn("users", "banned", "banned INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "onboarded_at", "onboarded_at INTEGER");
   await ensureColumn("letters", "cost", "cost INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("letters", "image", "image TEXT");
-  await ensureColumn("letters", "first_day", "first_day INTEGER NOT NULL DEFAULT 0");
-  await ensureColumn("letters", "notified", "notified INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(
+    "letters",
+    "first_day",
+    "first_day INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "letters",
+    "notified",
+    "notified INTEGER NOT NULL DEFAULT 0",
+  );
   await ensureColumn("letters", "reply_to", "reply_to TEXT");
   await ensureColumn("letters", "read_at", "read_at INTEGER");
   await ensureColumn("letters", "burn_seconds", "burn_seconds INTEGER");
   await ensureColumn("letters", "burned_at", "burned_at INTEGER");
   await ensureColumn("letters", "burned", "burned INTEGER NOT NULL DEFAULT 0");
-  await ensureColumn("letters", "seal_color", "seal_color TEXT NOT NULL DEFAULT 'vermilion'");
-  await ensureColumn("letters", "seal_pattern", "seal_pattern TEXT NOT NULL DEFAULT 'plain'");
+  await ensureColumn(
+    "letters",
+    "seal_color",
+    "seal_color TEXT NOT NULL DEFAULT 'vermilion'",
+  );
+  await ensureColumn(
+    "letters",
+    "seal_pattern",
+    "seal_pattern TEXT NOT NULL DEFAULT 'plain'",
+  );
   await ensureColumn("letters", "paper", "paper TEXT NOT NULL DEFAULT 'plain'");
-  await ensureColumn("letters", "vertical", "vertical INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(
+    "letters",
+    "vertical",
+    "vertical INTEGER NOT NULL DEFAULT 0",
+  );
   await ensureColumn("drafts", "burn_seconds", "burn_seconds INTEGER");
   await ensureColumn("drafts", "seal_color", "seal_color TEXT");
   await ensureColumn("drafts", "seal_pattern", "seal_pattern TEXT");
   await ensureColumn("drafts", "paper", "paper TEXT");
   await ensureColumn("drafts", "vertical", "vertical INTEGER");
 
+  await upgradeSchema(db);
+
   // 老账号：私印默认取笔名首字
-  await db.execute("UPDATE users SET seal_text = substr(pen_name, 1, 1) WHERE seal_text = ''");
+  await db.execute(
+    "UPDATE users SET seal_text = substr(pen_name, 1, 1) WHERE seal_text = ''",
+  );
 
   // 邮票图鉴种子
-  for (const s of (manifest.stamps as any[])) {
+  for (const s of manifest.stamps as any[]) {
     await db.execute({
       sql: "INSERT OR IGNORE INTO stamp_defs(id, name, category, acquire, file) VALUES(?,?,?,?,?)",
       args: [s.id, s.name, s.category, JSON.stringify(s.acquire), s.file],
@@ -250,18 +294,28 @@ async function init() {
   }
 
   // 管理员种子
-  const adminRow = await db.execute("SELECT id FROM users WHERE role='admin' LIMIT 1");
+  const adminRow = await db.execute(
+    "SELECT id FROM users WHERE role='admin' LIMIT 1",
+  );
   if (adminRow.rows.length === 0) {
-    // 仓库公开：不写死默认口令。未配置 MDJ_ADMIN_PASS 时生成一次性随机口令，只在部署日志打印一次
-    const generated = `mdj-${crypto.randomUUID().slice(0, 8)}`;
-    const pass = process.env.MDJ_ADMIN_PASS || generated;
-    if (!process.env.MDJ_ADMIN_PASS) {
-      console.warn(`[慢递局] 未配置 MDJ_ADMIN_PASS，已生成一次性站长口令：${generated}（登录后请改密并配置该环境变量）`);
-    }
+    // 首次初始化需要明确配置管理员口令，不把凭证写入日志。
+    const pass = process.env.MDJ_ADMIN_PASS;
+    if (!pass || pass.length < 12)
+      throw new Error("首次初始化需配置至少12位的 MDJ_ADMIN_PASS");
     const hash = await bcrypt.hash(pass, 10);
     await db.execute({
       sql: "INSERT INTO users(id, email, pen_name, password_hash, role, seal_text, coins, last_coin_at, created_at) VALUES(?,?,?,?,?,?,?,?,?)",
-      args: [crypto.randomUUID(), "admin@mandiju.dev", "站长", hash, "admin", "站", 500, Date.now(), Date.now()],
+      args: [
+        crypto.randomUUID(),
+        "admin@mandiju.dev",
+        "站长",
+        hash,
+        "admin",
+        "站",
+        500,
+        Date.now(),
+        Date.now(),
+      ],
     });
   }
 
