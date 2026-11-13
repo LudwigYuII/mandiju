@@ -4,7 +4,12 @@ export type SealPattern = "plain" | "wave" | "star" | "rings";
 /** 信件表里存储的火漆色（靛蓝渲染为蓝色调） */
 export type LetterSealTone = "vermilion" | "indigo" | "ink" | "jade";
 
-export const LETTER_SEAL_TONES: LetterSealTone[] = ["vermilion", "indigo", "ink", "jade"];
+export const LETTER_SEAL_TONES: LetterSealTone[] = [
+  "vermilion",
+  "indigo",
+  "ink",
+  "jade",
+];
 export const SEAL_PATTERNS: SealPattern[] = ["plain", "wave", "star", "rings"];
 
 /** 归一化数据库里的火漆色（旧信可能为空，回落朱红） */
@@ -55,13 +60,31 @@ export default function Seal({
   const fontSize = text.length > 1 ? 34 : 54;
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden>
-      <rect x="7" y="7" width="86" height="86" rx="16" fill="none" stroke={color} strokeWidth="7" />
+      <rect
+        x="7"
+        y="7"
+        width="86"
+        height="86"
+        rx="16"
+        fill="none"
+        stroke={color}
+        strokeWidth="7"
+      />
 
       {/* 纹样：水波（底部两行细波纹） */}
       {pattern === "wave" && (
-        <g stroke={color} fill="none" strokeWidth="2" strokeLinecap="round" opacity="0.85">
+        <g
+          stroke={color}
+          fill="none"
+          strokeWidth="2"
+          strokeLinecap="round"
+          opacity="0.85"
+        >
           <path d="M22 82 q3 -2.6 6 0 t6 0 t6 0 t6 0 t6 0 t6 0 t6 0 t6 0 t6 0" />
-          <path d="M22 87.5 q3 -2.6 6 0 t6 0 t6 0 t6 0 t6 0 t6 0 t6 0 t6 0 t6 0" opacity="0.5" />
+          <path
+            d="M22 87.5 q3 -2.6 6 0 t6 0 t6 0 t6 0 t6 0 t6 0 t6 0 t6 0 t6 0"
+            opacity="0.5"
+          />
         </g>
       )}
 

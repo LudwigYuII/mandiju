@@ -6,7 +6,9 @@ export const PAPER_KINDS: PaperKind[] = ["plain", "xuan", "gold", "night"];
 
 /** 归一化数据库里的信纸样式（旧信可能为空，回落素笺） */
 export function paperKindOf(v: string | null | undefined): PaperKind {
-  return (PAPER_KINDS as string[]).includes(String(v)) ? (String(v) as PaperKind) : "plain";
+  return (PAPER_KINDS as string[]).includes(String(v))
+    ? (String(v) as PaperKind)
+    : "plain";
 }
 
 /** 对应 globals.css 里的 .paper-xuan / .paper-gold / .paper-night（素笺无类） */

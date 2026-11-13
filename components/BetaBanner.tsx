@@ -1,4 +1,5 @@
 "use client";
+import { UiText } from "@/components/UiText";
 
 import { useEffect, useState } from "react";
 
@@ -24,9 +25,13 @@ export default function BetaBanner() {
 
   return (
     <div className="relative bg-vermilion/95 px-10 py-2 text-center text-xs leading-relaxed text-white">
-      <span>本站内测中（v1.8）。如遇问题，请致函：ycharsenal@163.com。</span>{" "}
+      <span>
+        <UiText
+          text={"本站内测中（v1.8）。如遇问题，请致函：ycharsenal@163.com。"}
+        />
+      </span>{" "}
       <a href="/changelog" className="underline underline-offset-2">
-        查看更新日志 →
+        <UiText text={"查看更新日志 →"} />
       </a>
       <button
         onClick={dismiss}

@@ -1,6 +1,18 @@
+import { UiText } from "@/components/UiText";
+
 import Reveal from "@/components/Reveal";
 
 const LOG: { v: string; date: string; items: string[] }[] = [
+  {
+    v: "整改分支 · 守笺",
+    date: "2026-11-13",
+    items: [
+      "统一私人信件权限、送达边界与草稿修订保护；保留旧信与收藏。",
+      "停用积分、数量成就及阅读回执，公开作品改为主动选择。",
+      "首页书案、独立界面简繁、准确历法与键盘启封。",
+      "私人附件与加密备份需要先完成配置和历史迁移；此项须在合并上线时验收。",
+    ],
+  },
   {
     v: "v1.8 · 藏影",
     date: "2026-11-10",
@@ -120,7 +132,9 @@ const LOG: { v: string; date: string; items: string[] }[] = [
 export default function ChangelogPage() {
   return (
     <div className="space-y-6">
-      <h1 className="rise text-3xl font-semibold tracking-tight">更新日志</h1>
+      <h1 className="rise text-3xl font-semibold tracking-tight">
+        <UiText text={"更新日志"} />
+      </h1>
       {LOG.map((g, i) => (
         <Reveal key={g.v} delay={i * 60}>
           <section className="card glass p-6">

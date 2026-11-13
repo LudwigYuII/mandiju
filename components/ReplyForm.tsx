@@ -1,4 +1,5 @@
 "use client";
+import { UiText, UiInput } from "@/components/UiText";
 
 import { useActionState } from "react";
 import { addReplyAction, type ActionState } from "@/lib/actions";
@@ -10,13 +11,21 @@ export default function ReplyForm({
   letterId: string;
   signedIn: boolean;
 }) {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(addReplyAction, {});
-  if (!signedIn) return <p className="text-sm text-ink-soft">登录后可以在信纸边缘批注。</p>;
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(
+    addReplyAction,
+    {},
+  );
+  if (!signedIn)
+    return (
+      <p className="text-sm text-ink-soft">
+        <UiText text={"登录后可以在信纸边缘批注。"} />
+      </p>
+    );
   return (
     <div>
       <form action={formAction} className="flex gap-2">
-        <input type="hidden" name="letterId" value={letterId} />
-        <input
+        <UiInput type="hidden" name="letterId" value={letterId} />
+        <UiInput
           key={Number(state?.ok ?? 0)}
           name="body"
           className="input flex-1"
@@ -24,10 +33,14 @@ export default function ReplyForm({
           maxLength={500}
         />
         <button className="btn !px-4 !py-2 !text-sm" disabled={pending}>
-          发送
+          <UiText text={"发送"} />
         </button>
       </form>
-      {state?.error && <p className="mt-1 text-xs text-vermilion">{state.error}</p>}
+      {state?.error && (
+        <p className="mt-1 text-xs text-vermilion">
+          <UiText text={state.error} />
+        </p>
+      )}
     </div>
   );
 }

@@ -1,3 +1,5 @@
+import { UiText } from "@/components/UiText";
+
 import { notFound, redirect } from "next/navigation";
 import { db, waitDb } from "@/lib/db";
 import { gateOnboard } from "@/lib/onboard";
@@ -32,8 +34,17 @@ export default async function WritePage({
   if (replyId) {
     const row = await readableLetter(replyId, sess.uid);
     if (!row) notFound();
-    const author = (await db.execute({sql: "SELECT pen_name FROM users WHERE id=?", args:[String(row.author_id)]})).rows[0];
-    reply = { id: String(row.id), title: String(row.title), authorPen: String(author?.pen_name ?? "") };
+    const author = (
+      await db.execute({
+        sql: "SELECT pen_name FROM users WHERE id=?",
+        args: [String(row.author_id)],
+      })
+    ).rows[0];
+    reply = {
+      id: String(row.id),
+      title: String(row.title),
+      authorPen: String(author?.pen_name ?? ""),
+    };
   }
 
   const [me, penpals, stamps, drafts, sent] = await Promise.all([
@@ -50,7 +61,9 @@ export default async function WritePage({
 
   return (
     <div className="space-y-6">
-      <h1 className="rise text-3xl font-semibold tracking-tight">写信</h1>
+      <h1 className="rise text-3xl font-semibold tracking-tight">
+        <UiText text={"写信"} />
+      </h1>
       <WriteForm
         pen={String(meRow.pen_name)}
         mySeal={String(meRow.seal_text || String(meRow.pen_name)[0] || "印")}
@@ -91,9 +104,9 @@ export default async function WritePage({
           paper: String(d.paper ?? ""),
           vertical: String(d.vertical ?? ""),
           updatedAt: Number(d.updated_at),
+          revision: Number(d.revision ?? 0),
         }))}
       />
     </div>
   );
 }
-

@@ -1,3 +1,5 @@
+import { UiText } from "@/components/UiText";
+
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { db, waitDb } from "@/lib/db";
@@ -32,7 +34,10 @@ export default async function CorrespondencePage({
 
   const [me, peer] = await Promise.all([
     db.execute({ sql: "SELECT * FROM users WHERE id=?", args: [sess.uid] }),
-    db.execute({ sql: "SELECT * FROM users WHERE pen_name=?", args: [peerPen] }),
+    db.execute({
+      sql: "SELECT * FROM users WHERE pen_name=?",
+      args: [peerPen],
+    }),
   ]);
   const meRow = me.rows[0] as any;
   const peerRow = peer.rows[0] as any;
@@ -50,7 +55,8 @@ export default async function CorrespondencePage({
     args: [sess.uid, peerId, peerId, sess.uid, Date.now()],
   });
   const rows = letters.rows as any[];
-  const firstYear = rows.length > 0 ? new Date(Number(rows[0].deliver_at)).getFullYear() : null;
+  const firstYear =
+    rows.length > 0 ? new Date(Number(rows[0].deliver_at)).getFullYear() : null;
   const mePen = String(meRow.pen_name);
 
   return (
@@ -58,7 +64,7 @@ export default async function CorrespondencePage({
       <div className="print:hidden">
         <div className="flex items-center justify-between">
           <Link href="/mail" className="text-sm text-ink-soft">
-            ← 回往来信笺
+            <UiText text={"← 回往来信笺"} />
           </Link>
           <PrintButton />
         </div>
@@ -67,21 +73,38 @@ export default async function CorrespondencePage({
       {/* 封面卡 */}
       <Reveal>
         <section className="card glass grain relative mt-4 overflow-hidden p-7 text-center">
-          <p className="text-[11px] font-semibold tracking-[0.32em] text-ink-soft">慢递局 · 通信集</p>
+          <p className="text-[11px] font-semibold tracking-[0.32em] text-ink-soft">
+            <UiText text={"慢递局 · 通信集"} />
+          </p>
           <div className="mx-auto mt-5 flex max-w-sm items-center justify-center gap-7">
             <div className="flex flex-col items-center gap-2">
-              <Seal char={String(meRow.seal_text || meRow.pen_name[0])} size={58} tone="vermilion" />
+              <Seal
+                char={String(meRow.seal_text || meRow.pen_name[0])}
+                size={58}
+                tone="vermilion"
+              />
               <span className="text-sm font-semibold">{mePen}</span>
             </div>
             <span className="font-serif text-xl text-vermilion/70">×</span>
             <div className="flex flex-col items-center gap-2">
-              <Seal char={String(peerRow.seal_text || peerRow.pen_name[0])} size={58} tone="blue" />
+              <Seal
+                char={String(peerRow.seal_text || peerRow.pen_name[0])}
+                size={58}
+                tone="blue"
+              />
               <span className="text-sm font-semibold">{peerPen}</span>
             </div>
           </div>
-          <h1 className="mt-6 text-2xl font-semibold tracking-tight">与 {peerPen} 的往来册</h1>
+          <h1 className="mt-6 text-2xl font-semibold tracking-tight">
+            <UiText text={"与"} />
+            {peerPen}
+            <UiText text={"的往来册"} />
+          </h1>
           <p className="mt-1.5 text-xs text-ink-soft">
-            往来 {rows.length} 封{firstYear ? ` · 始于 ${firstYear} 年` : ""}
+            <UiText text={"往来"} />
+            {rows.length}
+            <UiText text={"封"} />
+            {firstYear ? ` · 始于 ${firstYear} 年` : ""}
           </p>
         </section>
       </Reveal>
@@ -90,12 +113,17 @@ export default async function CorrespondencePage({
         <Reveal delay={80}>
           <div className="card glass grain mt-6 p-8 text-center">
             <p className="text-sm leading-relaxed text-ink-soft">
-              你们之间还没有已送达的信。
+              <UiText text={"你们之间还没有已送达的信。"} />
               <br />
-              第一封信，往往是一段友谊的开始。
+              <UiText text={"第一封信，往往是一段友谊的开始。"} />
             </p>
-            <Link href={`/write?to=${encodeURIComponent(peerPen)}`} className="btn mt-5">
-              给 {peerPen} 写第一封信
+            <Link
+              href={`/write?to=${encodeURIComponent(peerPen)}`}
+              className="btn mt-5"
+            >
+              <UiText text={"给"} />
+              {peerPen}
+              <UiText text={"写第一封信"} />
             </Link>
           </div>
         </Reveal>
@@ -108,11 +136,16 @@ export default async function CorrespondencePage({
             const vertical = Number(l.vertical) === 1;
             const fromMe = String(l.author_id) === sess.uid;
             return (
-              <article key={l.id} className={`letter-sheet ${paperClass(paperKind)}`}>
+              <article
+                key={l.id}
+                className={`letter-sheet ${paperClass(paperKind)}`}
+              >
                 <div className="mb-3 flex items-center justify-between">
                   <div className="text-sm text-ink-soft">
                     {String(l.pen_name)} · {genreLabel(String(l.genre))}
-                    <span className="ml-1.5 text-xs">{fromMe ? "我寄出的" : "寄给我的"}</span>
+                    <span className="ml-1.5 text-xs">
+                      <UiText text={fromMe ? "我寄出的" : "寄给我的"} />
+                    </span>
                   </div>
                   <Postmark
                     city={l.city}
@@ -121,7 +154,9 @@ export default async function CorrespondencePage({
                     firstDay={Number(l.first_day) === 1}
                   />
                 </div>
-                <h2 className="text-lg font-semibold tracking-tight">{String(l.title)}</h2>
+                <h2 className="text-lg font-semibold tracking-tight">
+                  {String(l.title)}
+                </h2>
                 <p
                   className={`mt-3 whitespace-pre-wrap text-[15px] leading-relaxed ${
                     l.genre === "poem" ? "text-center" : ""
@@ -131,11 +166,15 @@ export default async function CorrespondencePage({
                 </p>
                 <div
                   className={`mt-4 flex items-end justify-between border-t pt-3 ${
-                    paperKind === "night" ? "border-white/15" : "border-black/10"
+                    paperKind === "night"
+                      ? "border-white/15"
+                      : "border-black/10"
                   }`}
                 >
                   <span className="text-xs text-ink-soft">
-                    {fmtTime(Number(l.sent_at))} 投递于 {l.city || "慢递局"}
+                    {fmtTime(Number(l.sent_at))}
+                    <UiText text={"投递于"} />
+                    {l.city || "慢递局"}
                   </span>
                   <Seal
                     char={String(l.seal_text || l.pen_name[0])}

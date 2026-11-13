@@ -1,3 +1,5 @@
+import { UiText } from "@/components/UiText";
+
 import Link from "next/link";
 import Seal from "./Seal";
 import Avatar from "./Avatar";
@@ -28,7 +30,13 @@ export type LetterRow = {
   replies: number;
 };
 
-export default function LetterCard({ l, ghost = false }: { l: LetterRow; ghost?: boolean }) {
+export default function LetterCard({
+  l,
+  ghost = false,
+}: {
+  l: LetterRow;
+  ghost?: boolean;
+}) {
   const status = statusOf(l.deliver_at);
   const stamp = stampDefById(l.stamp_id);
   const isBurn = Number((l as any).burn_seconds ?? 0) > 0;
@@ -46,14 +54,22 @@ export default function LetterCard({ l, ghost = false }: { l: LetterRow; ghost?:
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <Avatar pen={l.pen_name} avatarId={l.avatar_id} bgId={l.bg_id} size={40} />
+          <Avatar
+            pen={l.pen_name}
+            avatarId={l.avatar_id}
+            bgId={l.bg_id}
+            size={40}
+          />
           <div>
             <div className="flex items-center gap-1.5 text-[16px] font-semibold">
               {l.pen_name}
               <Seal char={l.seal_text || l.pen_name[0]} size={20} />
             </div>
             <div className="text-xs text-ink-soft">
-              {genreLabel(l.genre)} · {ghost || status === "in_transit" ? "运输中…" : "已送达"}
+              {genreLabel(l.genre)} ·{" "}
+              <UiText
+                text={ghost || status === "in_transit" ? "运输中…" : "已送达"}
+              />
             </div>
           </div>
         </div>
@@ -81,7 +97,7 @@ export default function LetterCard({ l, ghost = false }: { l: LetterRow; ghost?:
       </div>
       <div className="mt-3 flex items-center justify-between border-t border-black/5 pt-2.5 text-xs text-ink-soft dark:border-white/10">
         <span>
-          ❤️ {l.likes} · 💬 {l.replies}
+          <UiText text={"尺牍往来"} />
         </span>
         <span>{postageLabel(l.postage)}</span>
       </div>
