@@ -4,9 +4,9 @@
   const path = require("node:path");
   const sharp = require("sharp");
   const { createClient } = require("@libsql/client");
-  const { S3Client, DeleteObjectCommand } = require("@aws-sdk/client-s3");
+  const { S3Client, DeleteObjectCommand, HeadObjectCommand } = require("@aws-sdk/client-s3");
   const { upgradeSchema } = require("../lib/schema-upgrades.ts");
-  const { storeImage } = require("../lib/storage.ts");
+  const { storeImage, readImage } = require("../lib/storage.ts");
   const apply = process.argv.includes("--apply"),
     retire = process.argv.includes("--retire-public");
   if ((apply || retire) && !process.argv.includes("--backup-verified"))
@@ -22,7 +22,8 @@
   const oldRefs = new Set();
   let changed = 0,
     unsupported = 0,
-    retained = 0;
+    retained = 0,
+    retired = 0;
   try {
     if (apply) await upgradeSchema(db);
     for (const [table, owner] of [
@@ -115,6 +116,20 @@
       }
     }
     if (retire && apply) {
+      // The same public object may be referenced through different hostnames.
+      const publicKey = (value) => {
+        const ref = String(value || "").replace(/^upload:/, "");
+        if (/^uploads\/[a-zA-Z0-9_.-]+$/.test(ref)) return ref;
+        try {
+          const url = new URL(ref);
+          return url.protocol === "https:" && !url.search && !url.hash &&
+            /^\/uploads\/[a-zA-Z0-9_.-]+$/.test(url.pathname)
+            ? url.pathname.slice(1) : null;
+        } catch { return null; }
+      };
+      const liveRefs = (await db.execute(
+        "SELECT image AS ref FROM letters UNION ALL SELECT image AS ref FROM drafts UNION ALL SELECT avatar_id AS ref FROM users UNION ALL SELECT bg_id AS ref FROM users"
+      )).rows;
       for (const row of (
         await db.execute(
           "SELECT DISTINCT legacy_ref FROM media WHERE legacy_ref IS NOT NULL AND legacy_retired=0",
@@ -122,13 +137,20 @@
       ).rows)
         oldRefs.add(String(row.legacy_ref));
       for (const ref of oldRefs) {
-        const links = await db.execute({
-          sql: `SELECT 1 FROM letters WHERE image=? UNION ALL SELECT 1 FROM drafts WHERE image=? UNION ALL SELECT 1 FROM users WHERE avatar_id=? OR bg_id=? LIMIT 1`,
-          args: [ref, ref, `upload:${ref}`, `upload:${ref}`],
-        });
-        if (links.rows.length) {
+        const key = publicKey(ref);
+        if (!key) throw new Error("Unsupported retirement reference");
+        if (liveRefs.some((row) => publicKey(row.ref) === key)) {
           retained++;
           continue;
+        }
+        const copies = (await db.execute({
+          sql: "SELECT object_key,purpose FROM media WHERE legacy_ref=?",
+          args: [ref],
+        })).rows;
+        if (!copies.length) throw new Error("Missing private replacement");
+        for (const copy of copies) {
+          const bytes = await readImage(String(copy.object_key), String(copy.purpose));
+          if (!bytes.length) throw new Error("Empty private replacement");
         }
         if (ref.startsWith("uploads/"))
           await fs
@@ -154,7 +176,16 @@
               Key: key,
             }),
           );
+          let absent = false;
+          try {
+            await client.send(new HeadObjectCommand({ Bucket: process.env.R2_BUCKET, Key: key }));
+          } catch (error) {
+            if (error.$metadata?.httpStatusCode !== 404) throw error;
+            absent = true;
+          }
+          if (!absent) throw new Error("Public source still exists after deletion");
         }
+        retired++;
         await db.execute({
           sql: "UPDATE media SET legacy_retired=1 WHERE legacy_ref=?",
           args: [ref],
@@ -165,6 +196,7 @@
       mode: apply ? "apply" : "dry-run",
       changed,
       unsupported,
+      retiredPublicFiles: retired,
       retainedSharedPublicFiles: retained,
     });
     if (changed && !retire)
