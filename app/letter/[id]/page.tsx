@@ -1,6 +1,7 @@
 import { UiText } from "@/components/UiText";
 
 import Link from "next/link";
+import ColophonSection from "@/components/ColophonSection";
 import { notFound } from "next/navigation";
 import { db, waitDb } from "@/lib/db";
 import { getSession } from "@/lib/auth";
@@ -35,8 +36,10 @@ export const dynamic = "force-dynamic";
 
 export default async function LetterPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{notesPage?:string}>;
 }) {
   await waitDb();
   const { id } = await params;
@@ -444,11 +447,10 @@ export default async function LetterPage({
       )}
 
       {/* 评论 */}
-      <Reveal delay={80}>
+      {(l.recipient_id || replies.rows.length>0) && <Reveal delay={80}>
         <section className="space-y-3">
           <h2 className="px-1 text-sm font-semibold">
-            <UiText text={"批注（"} />
-            {replies.rows.length}）
+            <UiText text={l.recipient_id?"批注":"旧制批注（历史保留）"} />
           </h2>
           {replies.rows.map((rp: any) => (
             <div key={rp.id} className="card flex gap-2.5 p-3.5">
@@ -475,9 +477,10 @@ export default async function LetterPage({
               </div>
             </div>
           ))}
-          <ReplyForm letterId={id} signedIn={!!sess} />
+          {l.recipient_id && <ReplyForm letterId={id} signedIn={!!sess} />}
         </section>
-      </Reveal>
+      </Reveal>}
+      {!l.recipient_id && !isBurn && !burned && <ColophonSection kind="letter" id={id} uid={sess?.uid||''} page={Number((await searchParams).notesPage)||1}/>}
     </div>
   );
 }

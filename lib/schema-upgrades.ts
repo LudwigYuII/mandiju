@@ -119,6 +119,41 @@ export async function upgradeSchema(db: Client) {
         args: [Date.now()],
       });
     }
+    const fourth = (
+      await tx.execute("SELECT version FROM schema_migrations WHERE version=4")
+    ).rows.length;
+    if (!fourth) {
+      await tx.execute(`CREATE TABLE IF NOT EXISTS literary_spaces (
+        id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'scroll', title TEXT NOT NULL,
+        intro TEXT NOT NULL DEFAULT '', rhyme TEXT NOT NULL DEFAULT '', visibility TEXT NOT NULL DEFAULT 'private' CHECK(visibility IN ('private','public')),
+        capacity INTEGER NOT NULL DEFAULT 12 CHECK(capacity BETWEEN 2 AND 24), closed INTEGER NOT NULL DEFAULT 0,
+        hidden INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, send_key TEXT NOT NULL, UNIQUE(owner_id,send_key))`);
+      await tx.execute(`CREATE TABLE IF NOT EXISTS literary_members (
+        space_id TEXT NOT NULL, user_id TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('invited','joined','declined','left','revoked')),
+        created_at INTEGER NOT NULL, PRIMARY KEY(space_id,user_id))`);
+      await tx.execute(`CREATE TABLE IF NOT EXISTS literary_entries (
+        id TEXT PRIMARY KEY, space_id TEXT NOT NULL, author_id TEXT NOT NULL, position INTEGER NOT NULL,
+        title TEXT NOT NULL, body TEXT NOT NULL, rhyme TEXT NOT NULL DEFAULT '', vertical INTEGER NOT NULL DEFAULT 0,
+        withdrawn INTEGER NOT NULL DEFAULT 0, hidden INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL,
+        send_key TEXT NOT NULL, UNIQUE(space_id,position), UNIQUE(space_id,author_id), UNIQUE(author_id,send_key))`);
+      await tx.execute(`CREATE TABLE IF NOT EXISTS literary_colophons (
+        id TEXT PRIMARY KEY, target_kind TEXT NOT NULL CHECK(target_kind IN ('entry','letter')), target_id TEXT NOT NULL,
+        author_id TEXT NOT NULL, body TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','accepted','declined','withdrawn')),
+        created_at INTEGER NOT NULL, revision INTEGER NOT NULL DEFAULT 0, UNIQUE(target_kind,target_id,author_id))`);
+      await tx.execute(`CREATE TABLE IF NOT EXISTS literary_reports (
+        id TEXT PRIMARY KEY, target_kind TEXT NOT NULL CHECK(target_kind IN ('entry','space')), target_id TEXT NOT NULL,
+        reporter_id TEXT NOT NULL, reason TEXT NOT NULL, created_at INTEGER NOT NULL, UNIQUE(target_kind,target_id,reporter_id))`);
+      await tx.execute(
+        "CREATE INDEX IF NOT EXISTS idx_literary_members_user ON literary_members(user_id,status)",
+      );
+      await tx.execute(
+        "CREATE INDEX IF NOT EXISTS idx_colophons_target ON literary_colophons(target_kind,target_id,status)",
+      );
+      await tx.execute({
+        sql: "INSERT INTO schema_migrations(version,applied_at) VALUES(4,?)",
+        args: [Date.now()],
+      });
+    }
     const cols = (await tx.execute("PRAGMA table_info(users)")).rows.map((c) =>
       String(c.name),
     );
