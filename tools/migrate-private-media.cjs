@@ -30,6 +30,7 @@
       ["letters", "author_id"],
       ["drafts", "user_id"],
     ]) {
+      if (retire) continue; // Retirement must never migrate additional attachments.
       const records = (
         await db.execute(
           `SELECT id,${owner} AS owner,image FROM ${table} WHERE image IS NOT NULL AND image<>'' AND image NOT LIKE 'api/media/%'`,
@@ -130,12 +131,13 @@
       const liveRefs = (await db.execute(
         "SELECT image AS ref FROM letters UNION ALL SELECT image AS ref FROM drafts UNION ALL SELECT avatar_id AS ref FROM users UNION ALL SELECT bg_id AS ref FROM users"
       )).rows;
-      for (const row of (
-        await db.execute(
-          "SELECT DISTINCT legacy_ref FROM media WHERE legacy_ref IS NOT NULL AND legacy_retired=0",
-        )
-      ).rows)
-        oldRefs.add(String(row.legacy_ref));
+      const candidates = (await db.execute(
+        "SELECT legacy_ref, MAX(created_at) AS created_at FROM media WHERE legacy_ref IS NOT NULL AND legacy_retired=0 GROUP BY legacy_ref"
+      )).rows;
+      if (candidates.length !== 1 ||
+          Number(candidates[0].created_at) > Date.parse("2026-11-13T11:20:00Z"))
+        throw new Error("Retirement is authorized for exactly one pre-existing migrated attachment; no objects deleted");
+      oldRefs.add(String(candidates[0].legacy_ref));
       for (const ref of oldRefs) {
         const key = publicKey(ref);
         if (!key) throw new Error("Unsupported retirement reference");

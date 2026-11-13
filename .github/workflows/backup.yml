@@ -75,9 +75,10 @@ jobs:
           OPERATION: ${{ inputs.operation }}
         run: |
           set -euo pipefail
-          node --require tsx/cjs tools/migrate-private-media.cjs --apply --backup-verified
           if [ "$OPERATION" = retire ]; then
             node --require tsx/cjs tools/migrate-private-media.cjs --apply --backup-verified --retire-public
+          else
+            node --require tsx/cjs tools/migrate-private-media.cjs --apply --backup-verified
           fi
       - name: Encrypt before upload
         env:
