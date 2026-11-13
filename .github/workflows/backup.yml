@@ -61,25 +61,6 @@ jobs:
           snapshot="$(find backups -mindepth 1 -maxdepth 1 -type d | head -n 1)"
           node tools/restore-backup.mjs "$snapshot"
           MDJ_DB=file:/tmp/mandiju-restore.db MDJ_PRIVATE_STORAGE=/tmp/mandiju-restore-media node --require tsx/cjs tools/restore-media-backup.cjs "$snapshot"
-      - name: Apply verified additive migration
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.operation != 'backup' }}
-        env:
-          MDJ_DB: ${{ secrets.MDJ_DB }}
-          MDJ_DB_AUTH_TOKEN: ${{ secrets.MDJ_DB_AUTH_TOKEN }}
-          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_BUCKET: ${{ secrets.R2_BUCKET }}
-          R2_PRIVATE_BUCKET: ${{ secrets.R2_PRIVATE_BUCKET }}
-          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
-          OPERATION: ${{ inputs.operation }}
-        run: |
-          set -euo pipefail
-          if [ "$OPERATION" = retire ]; then
-            node --require tsx/cjs tools/migrate-private-media.cjs --apply --backup-verified --retire-public
-          else
-            node --require tsx/cjs tools/migrate-private-media.cjs --apply --backup-verified
-          fi
       - name: Encrypt before upload
         env:
           BACKUP_CERT: ${{ secrets.MDJ_BACKUP_RECIPIENT_CERT }}
@@ -98,6 +79,25 @@ jobs:
             backup.sha256
           retention-days: 30
           if-no-files-found: error
+      - name: Apply verified additive migration
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.operation != 'backup' }}
+        env:
+          MDJ_DB: ${{ secrets.MDJ_DB }}
+          MDJ_DB_AUTH_TOKEN: ${{ secrets.MDJ_DB_AUTH_TOKEN }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_PRIVATE_BUCKET: ${{ secrets.R2_PRIVATE_BUCKET }}
+          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+          OPERATION: ${{ inputs.operation }}
+        run: |
+          set -euo pipefail
+          if [ "$OPERATION" = retire ]; then
+            node --require tsx/cjs tools/migrate-private-media.cjs --apply --backup-verified --retire-public
+          else
+            node --require tsx/cjs tools/upgrade-schema.cjs
+          fi
       - name: Remove plaintext working copies
         if: always()
         run: rm -rf backups "$RUNNER_TEMP/snapshot.tar.gz" "$RUNNER_TEMP/backup-recipient.pem"

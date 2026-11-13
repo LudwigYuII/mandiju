@@ -48,28 +48,92 @@ export async function upgradeSchema(db: Client) {
         args: [Date.now()],
       });
     }
-    const second = (await tx.execute("SELECT version FROM schema_migrations WHERE version=2")).rows.length;
+    const second = (
+      await tx.execute("SELECT version FROM schema_migrations WHERE version=2")
+    ).rows.length;
     if (!second) {
-      for (const [table,col,ddl] of [
-        ["users","literary_name","TEXT"], ["users","literary_key","TEXT"],
-        ["users","seal_style","TEXT NOT NULL DEFAULT 'yang'"],
-        ["users","retreat_until","INTEGER NOT NULL DEFAULT 0"],
-        ["users","show_referrer","INTEGER NOT NULL DEFAULT 0"],
-        ["letters","original_deliver_at","INTEGER"], ["drafts","recipient_id","TEXT"]
+      for (const [table, col, ddl] of [
+        ["users", "literary_name", "TEXT"],
+        ["users", "literary_key", "TEXT"],
+        ["users", "seal_style", "TEXT NOT NULL DEFAULT 'yang'"],
+        ["users", "retreat_until", "INTEGER NOT NULL DEFAULT 0"],
+        ["users", "show_referrer", "INTEGER NOT NULL DEFAULT 0"],
+        ["letters", "original_deliver_at", "INTEGER"],
+        ["drafts", "recipient_id", "TEXT"],
       ]) {
         const cols = (await tx.execute(`PRAGMA table_info(${table})`)).rows;
-        if (!cols.some(c => String(c.name) === col)) await tx.execute(`ALTER TABLE ${table} ADD COLUMN ${col} ${ddl}`);
+        if (!cols.some((c) => String(c.name) === col))
+          await tx.execute(`ALTER TABLE ${table} ADD COLUMN ${col} ${ddl}`);
       }
-      await tx.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_literary_key ON users(literary_key)");
-      const draftCols = (await tx.execute('PRAGMA table_info(drafts)')).rows;
-      if (draftCols.some(c=>String(c.name)==='recipient')) await tx.execute("UPDATE drafts SET recipient_id=(SELECT id FROM users WHERE users.pen_name=drafts.recipient) WHERE recipient_id IS NULL AND recipient IS NOT NULL");
-      await tx.execute({sql:"INSERT INTO schema_migrations(version,applied_at) VALUES(2,?)",args:[Date.now()]});
+      await tx.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_literary_key ON users(literary_key)",
+      );
+      const draftCols = (await tx.execute("PRAGMA table_info(drafts)")).rows;
+      if (draftCols.some((c) => String(c.name) === "recipient"))
+        await tx.execute(
+          "UPDATE drafts SET recipient_id=(SELECT id FROM users WHERE users.pen_name=drafts.recipient) WHERE recipient_id IS NULL AND recipient IS NOT NULL",
+        );
+      await tx.execute({
+        sql: "INSERT INTO schema_migrations(version,applied_at) VALUES(2,?)",
+        args: [Date.now()],
+      });
     }
-      const cols = (await tx.execute("PRAGMA table_info(users)")).rows.map(c => String(c.name));
-      const select = cols.map(c => c === 'pen_name'
-        ? "COALESCE(literary_name, '未题书友·' || rowid) AS pen_name"
-        : c === 'seal_text' ? "CASE WHEN literary_name IS NULL THEN '印' WHEN seal_style='yin' THEN 'yin:' || literary_name ELSE literary_name END AS seal_text" : '"' + c + '"').join(',');
-      await tx.execute(`CREATE VIEW IF NOT EXISTS public_users AS SELECT ${select} FROM users`);
+    const third = (
+      await tx.execute("SELECT version FROM schema_migrations WHERE version=3")
+    ).rows.length;
+    if (!third) {
+      await tx.execute(`CREATE TABLE IF NOT EXISTS study_profiles (
+        owner_id TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '', public_intro TEXT NOT NULL DEFAULT '',
+        inner_note TEXT NOT NULL DEFAULT '', visits_closed INTEGER NOT NULL DEFAULT 0,
+        gifts_closed INTEGER NOT NULL DEFAULT 0, revision INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL)`);
+      await tx.execute(`CREATE TABLE IF NOT EXISTS study_visits (
+        owner_id TEXT NOT NULL, visitor_id TEXT NOT NULL, note TEXT NOT NULL,
+        status TEXT NOT NULL CHECK(status IN ('pending','accepted','declined','withdrawn','revoked')),
+        created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, retry_at INTEGER NOT NULL DEFAULT 0,
+        revision INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(owner_id,visitor_id), CHECK(owner_id<>visitor_id))`);
+      await tx.execute(`CREATE TABLE IF NOT EXISTS user_blocks (
+        blocker_id TEXT NOT NULL, blocked_id TEXT NOT NULL, created_at INTEGER NOT NULL,
+        PRIMARY KEY(blocker_id,blocked_id), CHECK(blocker_id<>blocked_id))`);
+      await tx.execute(`CREATE TABLE IF NOT EXISTS study_events (
+        id TEXT PRIMARY KEY, actor_id TEXT NOT NULL, target_id TEXT NOT NULL,
+        kind TEXT NOT NULL, day_key TEXT NOT NULL, created_at INTEGER NOT NULL)`);
+      await tx.execute(
+        "CREATE INDEX IF NOT EXISTS idx_study_events_day ON study_events(actor_id,kind,day_key)",
+      );
+      await tx.execute(`CREATE TABLE IF NOT EXISTS gifts (
+        id TEXT PRIMARY KEY, sender_id TEXT NOT NULL, recipient_id TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK(kind IN ('plum','tea','snow','leaf')), note TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','accepted','declined')),
+        created_at INTEGER NOT NULL, available_at INTEGER NOT NULL, send_key TEXT NOT NULL,
+        UNIQUE(sender_id,send_key), CHECK(sender_id<>recipient_id))`);
+      await tx.execute(
+        "CREATE INDEX IF NOT EXISTS idx_gifts_inbox ON gifts(recipient_id,available_at)",
+      );
+      const letterCols = (await tx.execute("PRAGMA table_info(letters)")).rows;
+      if (!letterCols.some((c) => String(c.name) === "blocked_deliver_at"))
+        await tx.execute(
+          "ALTER TABLE letters ADD COLUMN blocked_deliver_at INTEGER",
+        );
+      await tx.execute({
+        sql: "INSERT INTO schema_migrations(version,applied_at) VALUES(3,?)",
+        args: [Date.now()],
+      });
+    }
+    const cols = (await tx.execute("PRAGMA table_info(users)")).rows.map((c) =>
+      String(c.name),
+    );
+    const select = cols
+      .map((c) =>
+        c === "pen_name"
+          ? "COALESCE(literary_name, '未题书友·' || rowid) AS pen_name"
+          : c === "seal_text"
+            ? "CASE WHEN literary_name IS NULL THEN '印' WHEN seal_style='yin' THEN 'yin:' || literary_name ELSE literary_name END AS seal_text"
+            : '"' + c + '"',
+      )
+      .join(",");
+    await tx.execute(
+      `CREATE VIEW IF NOT EXISTS public_users AS SELECT ${select} FROM users`,
+    );
     await tx.commit();
   } catch (e) {
     await tx.rollback();

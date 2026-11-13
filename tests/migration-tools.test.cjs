@@ -27,7 +27,7 @@ test.after(() => {
   fs.rmSync(publicFile, { force: true });
   fs.rmSync(directory, { recursive: true, force: true });
 });
-test("legacy attachment migration is dry-run first and later retirement is resumable", async () => {
+test("legacy attachment retirement stays limited to the authorized historical object", async () => {
   await waitDb();
   fs.mkdirSync(path.dirname(publicFile), { recursive: true });
   fs.writeFileSync(
@@ -66,6 +66,12 @@ test("legacy attachment migration is dry-run first and later retirement is resum
   assert.match(String(row.image), /^api\/media\//);
   assert.equal(Number(row.deliver_at), 9999999999999);
   assert.equal(fs.existsSync(publicFile), true);
+  // Newly migrated files must not pass the fixed historical deletion authorization.
+  result = run("--apply", "--backup-verified", "--retire-public");
+  assert.notEqual(result.status, 0);
+  assert.equal(fs.existsSync(publicFile), true);
+  // Isolated fixture represents the single historical object approved on Nov 13.
+  await db.execute("UPDATE media SET created_at=1");
   result = run("--apply", "--backup-verified", "--retire-public");
   assert.equal(result.status, 0, result.stderr);
   assert.equal(fs.existsSync(publicFile), false);
@@ -79,5 +85,6 @@ test("legacy attachment migration is dry-run first and later retirement is resum
     ),
   );
   result = run("--apply", "--backup-verified", "--retire-public");
-  assert.equal(result.status, 0, result.stderr);
+  assert.notEqual(result.status, 0, "No new deletion is authorized once the single object is retired");
+  assert.equal(fs.existsSync(publicFile), false);
 });

@@ -24,7 +24,8 @@ export async function setRetreatAction(_:ActionState,data:FormData):Promise<Acti
  try {
  await tx.execute({sql:'UPDATE users SET retreat_until=? WHERE id=?',args:[until,s.uid]});
  // Only new ordinary letters still in transit participate. Existing delivery promises and capsules are untouched.
- await tx.execute({sql:"UPDATE letters SET deliver_at=MAX(original_deliver_at,?) WHERE recipient_id=? AND author_id<>recipient_id AND postage<>'capsule' AND original_deliver_at IS NOT NULL AND deliver_at>?",args:[until||Date.now(),s.uid,Date.now()]});
+ await tx.execute({sql:"UPDATE letters SET deliver_at=MAX(original_deliver_at,?) WHERE recipient_id=? AND author_id<>recipient_id AND postage<>'capsule' AND original_deliver_at IS NOT NULL AND blocked_deliver_at IS NULL AND deliver_at>?",args:[until||Date.now(),s.uid,Date.now()]});
+ await tx.execute({sql:"UPDATE gifts SET available_at=MAX(created_at,?) WHERE recipient_id=? AND status='pending' AND available_at>?",args:[until||Date.now(),s.uid,Date.now()]});
  await tx.commit();
  } catch {await tx.rollback();return {error:'闭关设置未保存，请重试'};} finally {tx.close();}
  revalidatePath('/','layout');return {ok:true};

@@ -85,6 +85,7 @@ export default async function SettingsPage() {
         </div>
       </div>
 
+      <nav className="flex flex-wrap gap-5 text-sm"><Link href="/study/edit"><UiText text="布置书斋"/></Link><Link href="/visits"><UiText text="拜帖与赠答"/></Link></nav>
       <section className="card p-6"><IdentityForm name={String(me.literary_name || "")} until={Number(me.retreat_until)>Date.now()?siteDateKey(new Date(Number(me.retreat_until))):""} style={String(me.seal_style)} showReferrer={!!Number(me.show_referrer)} /></section>
       <section className="card p-5">
         <form action={updateMailPreferenceAction} className="space-y-3">

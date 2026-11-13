@@ -118,3 +118,69 @@ test(
     assert.equal((await fetch(origin + "/" + url)).status, 404);
   },
 );
+
+test(
+  "study pages exclude private RSC text and a real form submission preserves revision and authorization",
+  { skip: !origin },
+  async () => {
+    const route = "/study/" + encodeURIComponent("甲笺");
+    for (const id of [null, "fixture-c"]) {
+      const r = await page(route, id);
+      assert.equal(r.status, 200);
+      assert.ok(r.text.includes("PUBLIC_STUDY_INTRO"));
+      assert.ok(!r.text.includes("PRIVATE_STUDY_NOTE"));
+    }
+    assert.ok(
+      (await page(route, "fixture-b")).text.includes("PRIVATE_STUDY_NOTE"),
+    );
+    const r = await page("/study/edit", "fixture-a");
+    assert.equal(r.status, 200);
+    const html = r.text.match(
+      /<form[^>]*>[\s\S]*?name="op" value="profile"[\s\S]*?<\/form>/,
+    )?.[0];
+    assert.ok(html, "profile form must be rendered");
+    const decode = (s) =>
+      s
+        .replace(/&quot;/g, '"')
+        .replace(/&#x27;|&#39;/g, "'")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&amp;/g, "&");
+    const data = new FormData();
+    for (const m of html.matchAll(/<input\b[^>]*>/g)) {
+      const name = m[0].match(/name="([^"]*)"/)?.[1],
+        value = m[0].match(/value="([^"]*)"/)?.[1] || "";
+      if (name) data.append(decode(name), decode(value));
+    }
+    data.set("name", "试墨斋");
+    data.set("public_intro", "PUBLIC_UPDATED_INTRO");
+    data.set("inner_note", "PRIVATE_UPDATED_NOTE");
+    const submitted = await fetch(origin + "/study/edit", {
+      method: "POST",
+      headers: { cookie: cookie("fixture-a"), origin },
+      body: data,
+      redirect: "manual",
+    });
+    assert.ok(submitted.status < 400, "server action form must submit");
+    const owner = await page(route, "fixture-a");
+    assert.ok(owner.text.includes("PRIVATE_UPDATED_NOTE"));
+    const outsider = await page(route, "fixture-c");
+    assert.ok(outsider.text.includes("PUBLIC_UPDATED_INTRO"));
+    assert.ok(!outsider.text.includes("PRIVATE_UPDATED_NOTE"));
+    const { createClient } = require("@libsql/client");
+    const db = createClient({ url: "file:" + process.env.MDJ_DB });
+    try {
+      await db.execute(
+        "UPDATE study_visits SET status='revoked' WHERE owner_id='fixture-a' AND visitor_id='fixture-b'",
+      );
+    } finally {
+      db.close();
+    }
+    assert.ok(
+      !(await page(route, "fixture-b")).text.includes("PRIVATE_UPDATED_NOTE"),
+      "revoked visitor cannot read through an old route",
+    );
+    const anonymous=await page("/visits",null);
+  assert.ok(anonymous.status===307 || /NEXT_REDIRECT;replace;\/login;307|http-equiv="refresh" content="0;url=\/login"/.test(anonymous.text));
+  },
+);

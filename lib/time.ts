@@ -18,6 +18,7 @@ export function siteDateKey(date: Date = new Date()) {
   return `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
 }
 export function formatSiteTime(ms: number) {
+  if(ms >= 253402300799000) return "暂存中";
   return new Intl.DateTimeFormat("zh-Hans", {
     timeZone: SITE_TIME_ZONE,
     year: "numeric",

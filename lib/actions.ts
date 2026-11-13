@@ -1,4 +1,5 @@
 "use server";
+import { blockedBetween } from "./study-service";
 
 import { normalizeLiteraryName } from "./literary-name";
 import { siteDateStart } from "./time";
@@ -361,6 +362,7 @@ export async function createLetterAction(
     if (existing) savedId = String(existing.id);
     else {
       if (recipientId && !isCapsule) {
+        if(await blockedBetween(tx,sess.uid,recipientId)) throw new Error("暂时无法往来");
         const target = (await tx.execute({sql:"SELECT retreat_until FROM public_users WHERE id=?",args:[recipientId]})).rows[0];
         deliverMs = Math.max(originalDue, Number(target?.retreat_until || 0));
       }
@@ -960,6 +962,7 @@ export async function sendFriendRequestAction(
   const targetId = needText(formData.get("targetId"));
   if (!targetId) return { error: "没有找到这位笔友" };
   if (targetId === sess.uid) return { error: "不能加自己为好友" };
+  if(await blockedBetween(db,sess.uid,targetId)) return {error:"暂时无法往来"};
 
   const t = await db.execute({
     sql: "SELECT id, pen_name, banned FROM public_users WHERE id=?",
@@ -981,10 +984,11 @@ export async function sendFriendRequestAction(
     return { error: "对方已经向你发过申请，去「笔友」页接受吧" };
   }
 
-  await db.execute({
-    sql: "INSERT INTO friends(requester_id, addressee_id, status, created_at) VALUES(?,?,'pending',?)",
-    args: [sess.uid, targetId, Date.now()],
+  const inserted=await db.execute({
+    sql: "INSERT INTO friends(requester_id, addressee_id, status, created_at) SELECT ?,?,'pending',? WHERE NOT EXISTS(SELECT 1 FROM user_blocks WHERE (blocker_id=? AND blocked_id=?) OR (blocker_id=? AND blocked_id=?))",
+    args: [sess.uid, targetId, Date.now(),sess.uid,targetId,targetId,sess.uid],
   });
+  if(!inserted.rowsAffected) return {error:"暂时无法往来"};
   await notify(targetId, "friend", `${sess.pen} 想和你成为笔友`, "/friends");
   revalidatePath("/friends");
   return { ok: true };
@@ -997,15 +1001,17 @@ export async function acceptFriendAction(
   await waitDb();
   const sess = await requireUser();
   const requesterId = needText(formData.get("requesterId"));
+  if(await blockedBetween(db,sess.uid,requesterId)) return {error:"暂时无法往来"};
   const r = await db.execute({
     sql: "SELECT requester_id FROM friends WHERE requester_id=? AND addressee_id=? AND status='pending'",
     args: [requesterId, sess.uid],
   });
   if (r.rows.length === 0) return { error: "申请不存在或已处理" };
-  await db.execute({
-    sql: "UPDATE friends SET status='accepted', accepted_at=? WHERE requester_id=? AND addressee_id=?",
-    args: [Date.now(), requesterId, sess.uid],
+  const accepted=await db.execute({
+    sql: "UPDATE friends SET status='accepted', accepted_at=? WHERE requester_id=? AND addressee_id=? AND NOT EXISTS(SELECT 1 FROM user_blocks WHERE (blocker_id=? AND blocked_id=?) OR (blocker_id=? AND blocked_id=?))",
+    args: [Date.now(), requesterId, sess.uid,sess.uid,requesterId,requesterId,sess.uid],
   });
+  if(!accepted.rowsAffected) return {error:"暂时无法往来"};
   await notify(
     requesterId,
     "friend",
