@@ -1,3 +1,4 @@
+import { formatSiteTime } from "@/lib/time";
 import { UiText } from "@/components/UiText";
 
 import Link from "next/link";
@@ -23,7 +24,7 @@ export default async function StudyPage({
 
   const u = (
     await db.execute({
-      sql: "SELECT * FROM users WHERE pen_name=?",
+      sql: "SELECT * FROM public_users WHERE pen_name=?",
       args: [decodeURIComponent(pen)],
     })
   ).rows[0] as any;
@@ -34,7 +35,7 @@ export default async function StudyPage({
       SELECT l.*, u.pen_name, u.avatar_id, u.bg_id, u.seal_text,
         (SELECT COUNT(*) FROM likes k WHERE k.letter_id = l.id) AS likes,
         (SELECT COUNT(*) FROM replies r WHERE r.letter_id = l.id) AS replies
-      FROM letters l JOIN users u ON u.id = l.author_id
+      FROM letters l JOIN public_users u ON u.id = l.author_id
       WHERE l.author_id = ? AND l.recipient_id IS NULL AND l.moderation_hidden=0 AND l.deliver_at <= ?
       ORDER BY l.deliver_at DESC LIMIT 50`,
     args: [String(u.id), Date.now()],
@@ -65,8 +66,11 @@ export default async function StudyPage({
   const showCorrespondence =
     !!sess && !isMe && (rel === "friends" || exchanged);
 
+  const referrer = Number(u.show_referrer) ? (await db.execute({sql:"SELECT p.literary_name FROM invites i JOIN users p ON p.id=i.created_by WHERE i.used_by=? AND p.literary_name IS NOT NULL AND p.banned=0 LIMIT 1",args:[String(u.id)]})).rows[0] : null;
   return (
     <div className="space-y-5">
+      {Number(u.retreat_until)>Date.now() && <p className="card p-4 text-sm"><UiText text="闭关中，预计出关："/>{formatSiteTime(Number(u.retreat_until))}</p>}
+      {referrer?.literary_name && <p className="text-sm text-ink-soft"><UiText text="引荐人："/>{String(referrer.literary_name)}</p>}
       {/* 题签 */}
       <div className="card glass relative overflow-hidden">
         {bgUploaded ? (

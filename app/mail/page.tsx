@@ -25,8 +25,8 @@ export default async function MailPage() {
         CASE WHEN l.author_id = ? THEN ur.seal_text ELSE ua.seal_text END AS peer_seal,
         CASE WHEN l.author_id = ? THEN 'to' ELSE 'from' END AS direction
       FROM letters l
-      JOIN users ua ON ua.id = l.author_id
-      JOIN users ur ON ur.id = l.recipient_id
+      JOIN public_users ua ON ua.id = l.author_id
+      JOIN public_users ur ON ur.id = l.recipient_id
       WHERE l.recipient_id IS NOT NULL AND (l.author_id = ? OR (l.recipient_id = ? AND l.deliver_at <= ?))
       ORDER BY l.deliver_at DESC LIMIT 100`,
     args: [sess.uid, sess.uid, sess.uid, sess.uid, sess.uid, Date.now()],
@@ -116,7 +116,7 @@ export default async function MailPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="mail-room space-y-6">
       <h1 className="rise px-1 text-3xl font-semibold tracking-tight">
         <UiText text={"往来信笺"} />
       </h1>

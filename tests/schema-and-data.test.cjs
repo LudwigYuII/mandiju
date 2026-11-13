@@ -44,7 +44,7 @@ test("additive migration is repeatable and preserves historical account and coll
     assert.equal(
       (await db.execute("SELECT COUNT(*) AS n FROM schema_migrations")).rows[0]
         .n,
-      1,
+      2,
     );
   } finally {
     db.close();

@@ -646,3 +646,23 @@ html[lang="zh-Hant"][data-font="serif"] {
 html[lang="zh-Hant"][data-font="sans"] {
   --font-body: "Noto Sans TC", "Microsoft JhengHei", sans-serif;
 }
+
+/* Phase one: quiet editorial reading surfaces. */
+:root { --paper-edge:#D8D0C1; --bamboo:#758171; }
+.desk {padding-block:clamp(1rem,4vw,3rem);}
+.desk-heading {max-width:34rem;border-left:2px solid var(--paper-edge);padding-left:clamp(1.25rem,4vw,2.5rem);}
+.desk-heading h1 {font-weight:400;line-height:1.5;}
+.desk-link {padding:1.7rem 0;border-bottom:1px solid var(--paper-edge);border-radius:0;box-shadow:none;}
+.desk-link h2 {font-size:1.35rem;font-weight:400;letter-spacing:.12em;}
+.desk-link p {margin-top:.7rem;line-height:1.9;}
+.input {max-width:100%;min-height:2.75rem;}
+textarea.input {line-height:1.95;padding:1rem;}
+.card {border-radius:6px;box-shadow:none;}
+@media(max-width:640px){.page-width{width:100%;}.card{padding:1.1rem;}h1{overflow-wrap:anywhere;}button,a,input,select{touch-action:manipulation;}}
+
+.writing-room {max-width:56rem;margin-inline:auto;}
+.mail-room {max-width:46rem;margin-inline:auto;}
+.mail-room .card {border-inline:0;border-top:0;border-radius:0;transform:none;}
+.reading-room {max-width:48rem;margin-inline:auto;line-height:1.95;}
+.reading-room h1 {font-weight:400;line-height:1.6;}
+.reading-room p {overflow-wrap:anywhere;}

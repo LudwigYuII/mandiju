@@ -33,9 +33,9 @@ export default async function CorrespondencePage({
   const peerPen = decodeURIComponent(pen);
 
   const [me, peer] = await Promise.all([
-    db.execute({ sql: "SELECT * FROM users WHERE id=?", args: [sess.uid] }),
+    db.execute({ sql: "SELECT * FROM public_users WHERE id=?", args: [sess.uid] }),
     db.execute({
-      sql: "SELECT * FROM users WHERE pen_name=?",
+      sql: "SELECT * FROM public_users WHERE pen_name=?",
       args: [peerPen],
     }),
   ]);
@@ -46,7 +46,7 @@ export default async function CorrespondencePage({
   if (peerId === sess.uid) notFound(); // 自己与自己没有往来册（时光胶囊不在此列）
 
   const letters = await db.execute({
-    sql: `SELECT l.*, u.pen_name, u.seal_text FROM letters l JOIN users u ON u.id = l.author_id
+    sql: `SELECT l.*, u.pen_name, u.seal_text FROM letters l JOIN public_users u ON u.id = l.author_id
           WHERE ((l.author_id = ? AND l.recipient_id = ?) OR (l.author_id = ? AND l.recipient_id = ?))
             AND l.author_id != l.recipient_id
             AND l.deliver_at <= ?

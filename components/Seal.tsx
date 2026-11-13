@@ -44,91 +44,14 @@ function starPath(cx: number, cy: number, r: number) {
   return `M ${cx} ${cy - r} L ${cx + i} ${cy - i} L ${cx + r} ${cy} L ${cx + i} ${cy + i} L ${cx} ${cy + r} L ${cx - i} ${cy + i} L ${cx - r} ${cy} L ${cx - i} ${cy - i} Z`;
 }
 
-export default function Seal({
-  char,
-  size = 40,
-  tone = "vermilion",
-  pattern = "plain",
-}: {
-  char: string;
-  size?: number;
-  tone?: SealTone;
-  pattern?: SealPattern;
-}) {
-  const color = TONE_COLORS[tone] ?? TONE_COLORS.vermilion;
-  const text = char || "印";
-  const fontSize = text.length > 1 ? 34 : 54;
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden>
-      <rect
-        x="7"
-        y="7"
-        width="86"
-        height="86"
-        rx="16"
-        fill="none"
-        stroke={color}
-        strokeWidth="7"
-      />
-
-      {/* 纹样：水波（底部两行细波纹） */}
-      {pattern === "wave" && (
-        <g
-          stroke={color}
-          fill="none"
-          strokeWidth="2"
-          strokeLinecap="round"
-          opacity="0.85"
-        >
-          <path d="M22 82 q3 -2.6 6 0 t6 0 t6 0 t6 0 t6 0 t6 0 t6 0 t6 0 t6 0" />
-          <path
-            d="M22 87.5 q3 -2.6 6 0 t6 0 t6 0 t6 0 t6 0 t6 0 t6 0 t6 0 t6 0"
-            opacity="0.5"
-          />
-        </g>
-      )}
-
-      {/* 纹样：星光（四角小星点） */}
-      {pattern === "star" && (
-        <g fill={color} opacity="0.9">
-          {[
-            [25, 25],
-            [75, 25],
-            [25, 75],
-            [75, 75],
-          ].map(([cx, cy]) => (
-            <path key={`${cx}-${cy}`} d={starPath(cx, cy, 3.4)} />
-          ))}
-        </g>
-      )}
-
-      {/* 纹样：回纹（框内一圈细回纹线） */}
-      {pattern === "rings" && (
-        <rect
-          x="19"
-          y="19"
-          width="62"
-          height="62"
-          rx="9"
-          fill="none"
-          stroke={color}
-          strokeWidth="1.6"
-          strokeDasharray="4.5 3"
-          opacity="0.75"
-        />
-      )}
-
-      <text
-        x="50"
-        y="51"
-        textAnchor="middle"
-        dominantBaseline="central"
-        fontSize={fontSize}
-        fill={color}
-        fontFamily='"MdjKai","LXGW WenKai","KaiTi","STKaiti","SimSun",serif'
-      >
-        {text}
-      </text>
-    </svg>
-  );
+export default function Seal({char,size=40,tone="vermilion",pattern="plain"}:{char:string;size?:number;tone?:SealTone;pattern?:SealPattern}) {
+ const yin=char.startsWith('yin:');
+ const chars=Array.from((yin?char.slice(4):char)||'印').slice(0,4);
+ const color=TONE_COLORS[tone]||TONE_COLORS.vermilion;
+ const positions=chars.length===1?[[50,52]]:chars.length===2?[[50,32],[50,71]]:chars.length===3?[[70,32],[70,70],[30,50]]:[[70,32],[70,70],[30,32],[30,70]];
+ return <svg width={size} height={size} viewBox="0 0 100 100" role="img" aria-label={chars.join('')+(yin?'阴刻印章':'阳刻印章')}>
+ <rect x="6" y="6" width="88" height="88" rx="3" fill={yin?color:'none'} stroke={color} strokeWidth="4"/>
+ <rect x="13" y="13" width="74" height="74" rx="1" fill="none" stroke={yin?'var(--paper)':color} strokeWidth="1.5"/>
+ {chars.map((c,i)=><text key={i} x={positions[i][0]} y={positions[i][1]} textAnchor="middle" dominantBaseline="central" fontSize={chars.length===1?57:34} fill={yin?'var(--paper)':color} fontFamily='"MdjKai","Noto Serif TC","Noto Serif SC",serif'>{c}</text>)}
+ </svg>;
 }

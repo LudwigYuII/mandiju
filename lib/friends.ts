@@ -28,7 +28,7 @@ export async function canWriteTo(
 ): Promise<boolean> {
   if (meId === targetId) return false; // 自己寄自己走胶囊通道
   const roles = await db.execute({
-    sql: "SELECT id, role FROM users WHERE id IN (?,?)",
+    sql: "SELECT id, role FROM public_users WHERE id IN (?,?)",
     args: [meId, targetId],
   });
   const me = (roles.rows as any[]).find((x) => String(x.id) === meId);
@@ -52,13 +52,14 @@ export type PenpalInfo = {
   bgId: string;
   seal: string;
   via: "friend" | "replied";
+  retreatUntil?: number;
 };
 
 /** 写信页收件人清单：笔友 + 曾来信者（可回信） */
 export async function getPenpals(meId: string): Promise<PenpalInfo[]> {
   const r = await db.execute({
-    sql: `SELECT u.id, u.pen_name, u.avatar_id, u.bg_id, u.seal_text, f.status, f.requester_id
-          FROM friends f JOIN users u ON u.id = CASE WHEN f.requester_id = ? THEN f.addressee_id ELSE f.requester_id END
+    sql: `SELECT u.id, u.pen_name, u.avatar_id, u.bg_id, u.seal_text, u.retreat_until, f.status, f.requester_id
+          FROM friends f JOIN public_users u ON u.id = CASE WHEN f.requester_id = ? THEN f.addressee_id ELSE f.requester_id END
           WHERE (f.requester_id = ? OR f.addressee_id = ?) AND f.status = 'accepted'
           ORDER BY f.accepted_at ASC`,
     args: [meId, meId, meId],
@@ -66,6 +67,7 @@ export async function getPenpals(meId: string): Promise<PenpalInfo[]> {
   const friends = (r.rows as any[]).map((x) => ({
     id: String(x.id),
     pen: String(x.pen_name),
+    retreatUntil: Number(x.retreat_until || 0),
     avatarId: String(x.avatar_id),
     bgId: String(x.bg_id),
     seal: String(x.seal_text || x.pen_name[0]),
@@ -74,8 +76,8 @@ export async function getPenpals(meId: string): Promise<PenpalInfo[]> {
 
   // 曾来信者（非好友，回信豁免）
   const got = await db.execute({
-    sql: `SELECT DISTINCT u.id, u.pen_name, u.avatar_id, u.bg_id, u.seal_text
-          FROM letters l JOIN users u ON u.id = l.author_id
+    sql: `SELECT DISTINCT u.id, u.pen_name, u.avatar_id, u.bg_id, u.seal_text, u.retreat_until
+          FROM letters l JOIN public_users u ON u.id = l.author_id
           WHERE l.recipient_id = ? AND l.deliver_at <= ?
           ORDER BY l.deliver_at DESC LIMIT 20`,
     args: [meId, Date.now()],
@@ -85,6 +87,7 @@ export async function getPenpals(meId: string): Promise<PenpalInfo[]> {
     .map((x) => ({
       id: String(x.id),
       pen: String(x.pen_name),
+    retreatUntil: Number(x.retreat_until || 0),
       avatarId: String(x.avatar_id),
       bgId: String(x.bg_id),
       seal: String(x.seal_text || x.pen_name[0]),
@@ -97,12 +100,13 @@ export async function getPenpals(meId: string): Promise<PenpalInfo[]> {
 export async function searchPen(pen: string, excludeId: string) {
   const r = await db.execute({
     sql: `SELECT id, pen_name, avatar_id, bg_id, seal_text, letters_sent, created_at
-          FROM users WHERE pen_name LIKE ? AND id != ? ORDER BY created_at ASC LIMIT 12`,
+          FROM public_users WHERE pen_name LIKE ? AND id != ? ORDER BY created_at ASC LIMIT 12`,
     args: [`%${pen}%`, excludeId],
   });
   return (r.rows as any[]).map((x) => ({
     id: String(x.id),
     pen: String(x.pen_name),
+    retreatUntil: Number(x.retreat_until || 0),
     avatarId: String(x.avatar_id),
     bgId: String(x.bg_id),
     seal: String(x.seal_text || x.pen_name[0]),
@@ -114,7 +118,7 @@ export async function searchPen(pen: string, excludeId: string) {
 export async function pendingRequestsFor(uid: string, dir: "in" | "out") {
   const r = await db.execute({
     sql: `SELECT f.requester_id, f.addressee_id, f.created_at, u.pen_name, u.avatar_id, u.bg_id, u.seal_text
-          FROM friends f JOIN users u ON u.id = CASE WHEN f.requester_id = ? THEN f.addressee_id ELSE f.requester_id END
+          FROM friends f JOIN public_users u ON u.id = CASE WHEN f.requester_id = ? THEN f.addressee_id ELSE f.requester_id END
           WHERE f.status = 'pending' AND (f.requester_id = ? OR f.addressee_id = ?)
           ORDER BY f.created_at DESC LIMIT 30`,
     args: [uid, uid, uid],
@@ -129,7 +133,7 @@ export async function pendingRequestsFor(uid: string, dir: "in" | "out") {
 export async function friendList(uid: string) {
   const r = await db.execute({
     sql: `SELECT u.id, u.pen_name, u.avatar_id, u.bg_id, u.seal_text, u.letters_sent
-          FROM friends f JOIN users u ON u.id = CASE WHEN f.requester_id = ? THEN f.addressee_id ELSE f.requester_id END
+          FROM friends f JOIN public_users u ON u.id = CASE WHEN f.requester_id = ? THEN f.addressee_id ELSE f.requester_id END
           WHERE (f.requester_id = ? OR f.addressee_id = ?) AND f.status = 'accepted'
           ORDER BY f.accepted_at ASC LIMIT 60`,
     args: [uid, uid, uid],
@@ -137,6 +141,7 @@ export async function friendList(uid: string) {
   return (r.rows as any[]).map((x) => ({
     id: String(x.id),
     pen: String(x.pen_name),
+    retreatUntil: Number(x.retreat_until || 0),
     avatarId: String(x.avatar_id),
     bgId: String(x.bg_id),
     seal: String(x.seal_text || x.pen_name[0]),

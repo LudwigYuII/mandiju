@@ -86,14 +86,14 @@ export default async function LetterPage({
   const isAuthorOfPrivate = isAuthor && !!l.recipient_id && !isCapsule;
 
   const au = await db.execute({
-    sql: "SELECT * FROM users WHERE id=?",
+    sql: "SELECT * FROM public_users WHERE id=?",
     args: [String(l.author_id)],
   });
   const author = au.rows[0] as any;
   let recipientPen: string | null = null;
   if (l.recipient_id) {
     const rr = await db.execute({
-      sql: "SELECT pen_name FROM users WHERE id=?",
+      sql: "SELECT pen_name FROM public_users WHERE id=?",
       args: [String(l.recipient_id)],
     });
     recipientPen = String(rr.rows[0]?.pen_name ?? "");
@@ -216,7 +216,7 @@ export default async function LetterPage({
 
     if (isRecipient) {
       return (
-        <div className="space-y-4">
+        <div className="reading-room space-y-4">
           <Link href="/mail" className="text-sm text-ink-soft">
             <UiText text={"← 回往来信笺"} />
           </Link>
@@ -255,7 +255,7 @@ export default async function LetterPage({
     : false;
   const replies = await db.execute({
     sql: `SELECT r.*, u.pen_name, u.avatar_id, u.bg_id, u.seal_text
-          FROM replies r JOIN users u ON u.id = r.author_id
+          FROM replies r JOIN public_users u ON u.id = r.author_id
           WHERE r.letter_id = ? ORDER BY r.created_at ASC`,
     args: [id],
   });
@@ -278,7 +278,7 @@ export default async function LetterPage({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="reading-room space-y-4">
       <Link href="/" className="text-sm text-ink-soft">
         <UiText text={"← 回邮筒"} />
       </Link>

@@ -33,14 +33,14 @@ export default async function Home({
     sweepDelivered(), // 送达通知（懒扫描，cron 兜底）
     db.execute(`
       SELECT n.body, n.created_at, u.pen_name
-      FROM notes n JOIN users u ON u.id = n.author_id
+      FROM notes n JOIN public_users u ON u.id = n.author_id
       WHERE n.archived = 0 ORDER BY n.created_at DESC LIMIT 30`),
     db.execute({
       sql: `
         SELECT l.*, u.pen_name, u.avatar_id, u.bg_id, u.seal_text,
           (SELECT COUNT(*) FROM likes k WHERE k.letter_id = l.id) AS likes,
           (SELECT COUNT(*) FROM replies r WHERE r.letter_id = l.id) AS replies
-        FROM letters l JOIN users u ON u.id = l.author_id
+        FROM letters l JOIN public_users u ON u.id = l.author_id
         WHERE l.recipient_id IS NULL AND l.moderation_hidden=0 AND l.deliver_at <= ?
         ORDER BY l.deliver_at DESC LIMIT ? OFFSET ?`,
       args: [now, PAGE_SIZE + 1, offset],
@@ -49,7 +49,7 @@ export default async function Home({
       ? db.execute({
           sql: `
             SELECT l.*, u.pen_name, u.avatar_id, u.bg_id, u.seal_text, 0 AS likes, 0 AS replies
-            FROM letters l JOIN users u ON u.id = l.author_id
+            FROM letters l JOIN public_users u ON u.id = l.author_id
             WHERE l.author_id = ? AND l.deliver_at > ?
             ORDER BY l.deliver_at ASC LIMIT 10`,
           args: [sess.uid, now],
@@ -60,7 +60,7 @@ export default async function Home({
     ),
     sess
       ? db.execute({
-          sql: "SELECT birthday FROM users WHERE id=?",
+          sql: "SELECT birthday FROM public_users WHERE id=?",
           args: [sess.uid],
         })
       : Promise.resolve({ rows: [] }),

@@ -65,10 +65,6 @@ export default function RegisterForm({
       setClientErr("两次输入的密码不一致");
       return;
     }
-    if (!/^[\u4e00-\u9fa5]{1,2}$/.test(sealV)) {
-      setClientErr("私印需为 1–2 个汉字");
-      return;
-    }
     setClientErr("");
     fd.delete("password2");
     startTransition(() => formAction(fd));
@@ -107,13 +103,13 @@ export default function RegisterForm({
 
       <label className="block">
         <span className="mb-1.5 block text-sm font-semibold">
-          <UiText text={"笔名"} />
+          <UiText text={"雅号"} />
         </span>
         <UiInput
           name="pen"
           className="input"
-          placeholder="请输入笔名"
-          maxLength={12}
+          placeholder="二至四个汉字"
+          maxLength={8}
           value={pen}
           onChange={(e) => onPen(e.target.value)}
         />
@@ -149,28 +145,7 @@ export default function RegisterForm({
         </div>
       </label>
 
-      <div>
-        <span className="mb-1.5 block text-sm font-semibold">
-          <UiText text={"私印"} />
-        </span>
-        <div className="flex items-center gap-3">
-          <UiInput
-            name="seal"
-            className="input w-28 text-center !text-lg"
-            placeholder="印"
-            maxLength={2}
-            value={seal}
-            onChange={(e) => {
-              setSealTouched(true);
-              setSeal(e.target.value);
-            }}
-          />
-          <Seal char={seal || "印"} size={52} />
-        </div>
-        <p className="mt-1.5 text-xs text-ink-soft">
-          <UiText text={"一至两个汉字，将盖在你寄出的每封信上"} />
-        </p>
-      </div>
+      <label className="block"><UiText text="私印样式"/><select name="style" className="input mt-2"><option value="yang"><UiText text="阳刻"/></option><option value="yin"><UiText text="阴刻"/></option></select><p className="text-xs text-ink-soft mt-2"><UiText text="根据雅号自动生成，可在设置中切换阴阳刻。"/></p></label>
 
       <div>
         <span className="mb-1.5 block text-sm font-semibold">
@@ -264,7 +239,7 @@ export default function RegisterForm({
       )}
 
       <button type="submit" className="btn w-full" disabled={pending}>
-        <UiText text={pending ? "…" : "领取笔名与私印"} />
+        <UiText text={pending ? "…" : "凭荐帖入局"} />
       </button>
       <p className="text-center text-sm text-ink-soft">
         <UiText text={"已经是局里的人了？"} />

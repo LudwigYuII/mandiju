@@ -1,5 +1,6 @@
 "use server";
 
+import { normalizeLiteraryName } from "./literary-name";
 import { siteDateStart } from "./time";
 import manifest from "@/data/manifest.json";
 import { validBirthday } from "./profile-policy";
@@ -59,10 +60,13 @@ export async function registerAction(
   await waitDb();
   const code = needText(formData.get("code"));
   const email = needText(formData.get("email")).toLowerCase();
-  const pen = needText(formData.get("pen"));
+  let identity;
+  try { identity = normalizeLiteraryName(needText(formData.get("pen"))); }
+  catch (error) { return {error:(error as Error).message}; }
+  const pen = identity.name;
   const pass = String(formData.get("password") ?? "");
   const birthday = needText(formData.get("birthday"));
-  const seal = needText(formData.get("seal"));
+  const seal = pen;
   const avatarId = needText(formData.get("avatarId")) || "C01";
   const bgId = needText(formData.get("bgId")) || "D01";
 
@@ -76,9 +80,7 @@ export async function registerAction(
   if (pass.length < 12) return { error: "新密码至少12个字符" };
   if (Buffer.byteLength(pass, "utf8") > 72)
     return { error: "密码过长，请缩短后重试" };
-  if (pen.length < 1 || pen.length > 12) return { error: "笔名 1–12 个字符" };
-  if (!/^[\u4e00-\u9fa5]{1,2}$/.test(seal))
-    return { error: "私印需为 1–2 个汉字" };
+
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     return { error: "邮箱格式不正确" };
 
@@ -93,12 +95,12 @@ export async function registerAction(
   if (inv.rows.length === 0) return { error: "邀请码无效或已被使用" };
 
   const dupEmail = await db.execute({
-    sql: "SELECT id FROM users WHERE email=?",
+    sql: "SELECT id FROM public_users WHERE email=?",
     args: [email],
   });
   if (dupEmail.rows.length > 0) return { error: "该邮箱已注册" };
   const dupPen = await db.execute({
-    sql: "SELECT id FROM users WHERE pen_name=?",
+    sql: "SELECT id FROM public_users WHERE pen_name=?",
     args: [pen],
   });
   if (dupPen.rows.length > 0) return { error: "该笔名已被占用" };
@@ -131,6 +133,7 @@ export async function registerAction(
         Date.now(),
       ],
     });
+    await tx.execute({sql:"UPDATE users SET literary_name=?,literary_key=?,seal_style=? WHERE id=?",args:[pen,identity.key,formData.get('style')==='yin'?'yin':'yang',id]});
     await tx.commit();
   } catch {
     await tx.rollback();
@@ -158,7 +161,7 @@ export async function loginAction(
   if (!rl.ok) return { error: tooManyText(rl.retryAfter) };
 
   const r = await db.execute({
-    sql: "SELECT * FROM users WHERE email=?",
+    sql: "SELECT * FROM public_users WHERE email=?",
     args: [email],
   });
   const u = r.rows[0] as any;
@@ -198,9 +201,10 @@ export async function createLetterAction(
   if (previous) redirect(`/letter/${String(previous.id)}`);
 
   const meBan = await db.execute({
-    sql: "SELECT banned FROM users WHERE id=?",
+    sql: "SELECT banned,literary_name FROM users WHERE id=?",
     args: [sess.uid],
   });
+  if (!(meBan.rows[0] as any)?.literary_name) redirect("/identity");
   if (Number((meBan.rows[0] as any)?.banned) === 1)
     return { error: "你的账号已被暂停寄信" };
 
@@ -294,7 +298,7 @@ export async function createLetterAction(
     recipientId = sess.uid; // 收件人是未来的自己
   } else if (recipientPen) {
     const r = await db.execute({
-      sql: "SELECT id, banned FROM users WHERE pen_name=?",
+      sql: "SELECT id, banned FROM public_users WHERE pen_name=?",
       args: [recipientPen],
     });
     if (r.rows.length === 0) return { error: "收件人不存在" };
@@ -342,7 +346,8 @@ export async function createLetterAction(
 
   // 首日戳
   const firstDay = todayFirstDay();
-  const deliverMs = isCapsule ? capsuleAt : deliverAt(postage, now);
+  const originalDue = isCapsule ? capsuleAt : deliverAt(postage, now);
+  let deliverMs = originalDue;
 
   let savedId: string = id;
   const tx = await db.transaction("write");
@@ -355,9 +360,13 @@ export async function createLetterAction(
     ).rows[0];
     if (existing) savedId = String(existing.id);
     else {
+      if (recipientId && !isCapsule) {
+        const target = (await tx.execute({sql:"SELECT retreat_until FROM public_users WHERE id=?",args:[recipientId]})).rows[0];
+        deliverMs = Math.max(originalDue, Number(target?.retreat_until || 0));
+      }
       await tx.execute({
-        sql: `INSERT INTO letters(id, author_id, recipient_id, genre, title, body, postage, stamp_id, weather, city, temp, cost, image, first_day, reply_to, sent_at, deliver_at, burn_seconds, seal_color, seal_pattern, paper, vertical, send_key)
-          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        sql: `INSERT INTO letters(id, author_id, recipient_id, genre, title, body, postage, stamp_id, weather, city, temp, cost, image, first_day, reply_to, sent_at, deliver_at, burn_seconds, seal_color, seal_pattern, paper, vertical, send_key, original_deliver_at)
+          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         args: [
           id,
           sess.uid,
@@ -382,6 +391,7 @@ export async function createLetterAction(
           paper,
           verticalRaw === "1" ? 1 : 0,
           sendKey,
+          originalDue,
         ],
       });
       if (image)
@@ -472,7 +482,7 @@ export async function updateProfileAction(
   if (isUploadBg && !(await ownedMedia(bgId, sess.uid, "profile"))) {
     const old = (
       await db.execute({
-        sql: "SELECT bg_id FROM users WHERE id=?",
+        sql: "SELECT bg_id FROM public_users WHERE id=?",
         args: [sess.uid],
       })
     ).rows[0];
@@ -570,7 +580,7 @@ export async function generateInvitesAction(
   const sess = await getSession();
   if (!sess) redirect("/login");
   const me = await db.execute({
-    sql: "SELECT role FROM users WHERE id=?",
+    sql: "SELECT role FROM public_users WHERE id=?",
     args: [sess.uid],
   });
   if (String((me.rows[0] as any)?.role) !== "admin")
@@ -618,7 +628,7 @@ export async function createTopicAction(
   if (!sess) redirect("/login");
   const host = await currentHost();
   const me = await db.execute({
-    sql: "SELECT role FROM users WHERE id=?",
+    sql: "SELECT role FROM public_users WHERE id=?",
     args: [sess.uid],
   });
   const isAdmin = String((me.rows[0] as any)?.role) === "admin";
@@ -729,10 +739,10 @@ export async function saveDraftAction(
     : null;
   const vertical = needText(formData.get("vertical")) === "1" ? 1 : null;
   const saved = await db.execute({
-    sql: `INSERT INTO drafts(id, user_id, genre, title, body, postage, stamp_id, recipient, city, weather, image, capsule_date, topic_id, reply_to, burn_seconds, seal_color, seal_pattern, paper, vertical, updated_at)
-          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    sql: `INSERT INTO drafts(id, user_id, genre, title, body, postage, stamp_id, recipient, city, weather, image, capsule_date, topic_id, reply_to, burn_seconds, seal_color, seal_pattern, paper, vertical, updated_at,recipient_id)
+          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,(SELECT id FROM public_users WHERE pen_name=?))
           ON CONFLICT(id) DO UPDATE SET genre=excluded.genre, title=excluded.title, body=excluded.body,
-            postage=excluded.postage, stamp_id=excluded.stamp_id, recipient=excluded.recipient,
+            postage=excluded.postage, stamp_id=excluded.stamp_id, recipient=excluded.recipient,recipient_id=excluded.recipient_id,
             city=excluded.city, weather=excluded.weather, image=excluded.image,
             capsule_date=excluded.capsule_date, topic_id=excluded.topic_id, reply_to=excluded.reply_to,
             burn_seconds=excluded.burn_seconds, seal_color=excluded.seal_color,
@@ -759,6 +769,7 @@ export async function saveDraftAction(
       paper,
       vertical,
       Date.now(),
+      needText(formData.get("recipient")),
       revision,
     ],
   });
@@ -826,7 +837,7 @@ export async function forgotPasswordAction(
   const rl = await rateLimit(`forgot:${email}`, 3, 60 * 60 * 1000);
   if (!rl.ok) return { error: tooManyText(rl.retryAfter) };
   const u = await db.execute({
-    sql: "SELECT id FROM users WHERE email=?",
+    sql: "SELECT id FROM public_users WHERE email=?",
     args: [email],
   });
   if (u.rows.length === 0) return { ok: true };
@@ -869,7 +880,7 @@ export async function resetPasswordAction(
   const rl = await rateLimit(`reset:${email}`, 10, 15 * 60 * 1000);
   if (!rl.ok) return { error: tooManyText(rl.retryAfter) };
   const u = await db.execute({
-    sql: "SELECT id FROM users WHERE email=?",
+    sql: "SELECT id FROM public_users WHERE email=?",
     args: [email],
   });
   if (u.rows.length === 0) return { error: "邮箱未注册" };
@@ -951,7 +962,7 @@ export async function sendFriendRequestAction(
   if (targetId === sess.uid) return { error: "不能加自己为好友" };
 
   const t = await db.execute({
-    sql: "SELECT id, pen_name, banned FROM users WHERE id=?",
+    sql: "SELECT id, pen_name, banned FROM public_users WHERE id=?",
     args: [targetId],
   });
   if (t.rows.length === 0) return { error: "这位笔友不存在" };
@@ -1050,7 +1061,7 @@ export async function updateBirthdayAction(
 async function requireAdmin(): Promise<{ uid: string; pen: string }> {
   const sess = await requireUser();
   const me = await db.execute({
-    sql: "SELECT role FROM users WHERE id=?",
+    sql: "SELECT role FROM public_users WHERE id=?",
     args: [sess.uid],
   });
   if (String((me.rows[0] as any)?.role) !== "admin") redirect("/");
@@ -1097,7 +1108,7 @@ export async function adminToggleBanAction(formData: FormData): Promise<void> {
   await requireAdmin();
   const userId = needText(formData.get("userId"));
   const u = await db.execute({
-    sql: "SELECT banned, role FROM users WHERE id=?",
+    sql: "SELECT banned, role FROM public_users WHERE id=?",
     args: [userId],
   });
   if (u.rows.length === 0) return;
@@ -1116,7 +1127,7 @@ export async function adminToggleRoleAction(formData: FormData): Promise<void> {
   await requireAdmin();
   const userId = needText(formData.get("userId"));
   const u = await db.execute({
-    sql: "SELECT role, banned FROM users WHERE id=?",
+    sql: "SELECT role, banned FROM public_users WHERE id=?",
     args: [userId],
   });
   if (u.rows.length === 0) return;
@@ -1126,7 +1137,7 @@ export async function adminToggleRoleAction(formData: FormData): Promise<void> {
   if (next === "member") {
     // 防误操作：至少保留一位站长
     const admins = await db.execute({
-      sql: "SELECT COUNT(*) AS n FROM users WHERE role='admin'",
+      sql: "SELECT COUNT(*) AS n FROM public_users WHERE role='admin'",
     });
     if (Number((admins.rows[0] as any)?.n ?? 0) <= 1) return;
   }
@@ -1176,7 +1187,7 @@ export async function sendTestMailAction(
   const sess = await requireAdmin();
   const me = (
     await db.execute({
-      sql: "SELECT email FROM users WHERE id=?",
+      sql: "SELECT email FROM public_users WHERE id=?",
       args: [sess.uid],
     })
   ).rows[0] as any;

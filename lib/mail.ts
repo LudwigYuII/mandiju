@@ -66,7 +66,7 @@ export async function sendMail(
 export async function sweepDelivered() {
   const now = Date.now();
   const due = await db.execute({
-    sql: `SELECT l.id,l.recipient_id,u.email,u.mail_notices FROM letters l JOIN users u ON u.id=l.recipient_id
+    sql: `SELECT l.id,l.recipient_id,u.email,u.mail_notices FROM letters l JOIN public_users u ON u.id=l.recipient_id
     WHERE l.deliver_at<=? AND l.notified=0 AND l.recipient_id IS NOT NULL AND l.burned=0 LIMIT 200`,
     args: [now],
   });
@@ -90,7 +90,7 @@ export async function sweepDelivered() {
   }
   const jobs = await db.execute({
     sql: `SELECT j.*,l.recipient_id,l.deliver_at,l.burned,u.email,u.mail_notices
-    FROM delivery_jobs j JOIN letters l ON l.id=j.letter_id JOIN users u ON u.id=l.recipient_id
+    FROM delivery_jobs j JOIN letters l ON l.id=j.letter_id JOIN public_users u ON u.id=l.recipient_id
     WHERE j.status IN ('pending','processing') AND j.next_attempt_at<=? AND j.lease_until<=? AND l.deliver_at<=? LIMIT 200`,
     args: [now, now, now],
   });
@@ -207,7 +207,7 @@ export async function sendReplyNoticeEmail(opts: {
   try {
     const user = (
       await db.execute({
-        sql: "SELECT email,mail_notices FROM users WHERE id=?",
+        sql: "SELECT email,mail_notices FROM public_users WHERE id=?",
         args: [opts.authorId],
       })
     ).rows[0];

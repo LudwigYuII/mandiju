@@ -2,6 +2,7 @@
 import { UiText, UiInput, UiTextarea } from "@/components/UiText";
 
 import Link from "next/link";
+import { formatSiteTime } from "@/lib/time";
 import {
   useActionState,
   useEffect,
@@ -38,6 +39,7 @@ import {
 } from "@/lib/achievements";
 
 type PenPal = {
+  retreatUntil?: number;
   pen: string;
   avatarId: string;
   bgId: string;
@@ -453,6 +455,7 @@ export default function WriteForm({
 
   return (
     <div className="space-y-6">
+      {Number(penpals.find(p=>p.pen===recipient)?.retreatUntil)>Date.now() && <p className="border-l-2 border-black/15 pl-4 text-sm text-ink-soft" role="status"><UiText text="对方闭关中，来信将暂存。预计出关："/>{formatSiteTime(Number(penpals.find(p=>p.pen===recipient)?.retreatUntil))}</p>}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm text-ink-soft">

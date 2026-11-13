@@ -9,7 +9,7 @@
   });
   try {
     await upgradeSchema(db);
-    console.log("Additive schema version 1 is ready.");
+    console.log("Additive schema version 2 is ready.");
   } finally {
     db.close();
   }
