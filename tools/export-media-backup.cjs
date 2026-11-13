@@ -51,7 +51,7 @@ const { readImage } = require("../lib/storage.ts");
       bytes = Buffer.from(await response.arrayBuffer());
     } else
       throw new Error(
-        "Unsupported legacy attachment reference: resolve it before claiming a complete backup",
+        "Unsupported legacy attachment reference " + JSON.stringify({ absoluteHttps: /^https:\/\//.test(ref), rootRelative: ref.startsWith("/"), inlineImage: ref.startsWith("data:image/"), hasUploadsPath: ref.includes("/uploads/"), configuredBaseMatches: !!base && ref.startsWith(base + "/"), surroundingWhitespace: ref !== ref.trim(), baseSurroundingWhitespace: base !== base.trim(), baseHasUploadsSuffix: base.endsWith("/uploads"), refLength: ref.length }),
       );
     const digest = crypto.createHash("sha256").update(bytes).digest("hex");
     const file = `attachments/legacy-${digest}`;
