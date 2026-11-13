@@ -81,6 +81,9 @@ const fs = require("node:fs");
     "surface",
     "fixture-pending",
   );
+  await db.execute("UPDATE users SET literary_name=pen_name WHERE id LIKE 'fixture-%'");
+  await db.execute({sql:"INSERT INTO study_profiles(owner_id,name,public_intro,inner_note,updated_at) VALUES('fixture-a','测试书斋','PUBLIC_STUDY_INTRO','PRIVATE_STUDY_NOTE',?)",args:[now]});
+  await db.execute({sql:"INSERT INTO study_visits(owner_id,visitor_id,note,status,created_at,updated_at) VALUES('fixture-a','fixture-b','问安','accepted',?,?)",args:[now,now]});
   const tokens = {};
   for (const id of ["fixture-a", "fixture-b", "fixture-c"])
     tokens[id] = await new SignJWT({ uid: id, av: 0 })

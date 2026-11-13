@@ -1,5 +1,6 @@
 // 好友系统：只有互相成为笔友（或对方曾来信）才能互相寄信
 import { db } from "./db";
+import { blockedBetween } from "./study-service";
 
 export type Friendship = "none" | "pending_out" | "pending_in" | "friends";
 
@@ -26,6 +27,7 @@ export async function canWriteTo(
   meId: string,
   targetId: string,
 ): Promise<boolean> {
+  if (await blockedBetween(db, meId, targetId)) return false;
   if (meId === targetId) return false; // 自己寄自己走胶囊通道
   const roles = await db.execute({
     sql: "SELECT id, role FROM public_users WHERE id IN (?,?)",
