@@ -84,6 +84,7 @@ export default async function Home() {
         <Link className="desk-link" href="/literature"><h2><UiText text="展一卷唱和"/></h2><p><UiText text="诸友依序相和，不计高下。"/></p></Link>
         <Link className="desk-link" href="/gatherings"><h2><UiText text="赴一场雅集"/></h2><p><UiText text="同题闲叙，散席留序。"/></p></Link>
         <Link className="desk-link" href="/reading"><h2><UiText text="共读一页"/></h2><p><UiText text="抄几行古文，留一段自己的札记。"/></p></Link>
+        <Link className="desk-link" href="/travel"><h2><UiText text="循墨点云游"/></h2><p><UiText text="读一处行旅，记一段远方。"/></p></Link>
       </section>
       <p className="border-t border-black/10 pt-6 text-sm leading-loose text-ink-soft dark:border-white/10">
         <UiText text={"有古意，而不作古；有人情，而不喧哗。"} />

@@ -206,6 +206,23 @@ export async function upgradeSchema(db: Client) {
         event_key TEXT PRIMARY KEY,space_id TEXT NOT NULL UNIQUE,created_at INTEGER NOT NULL)`);
       await tx.execute({sql:"INSERT INTO schema_migrations(version,applied_at) VALUES(6,?)",args:[Date.now()]});
     }
+    const seventh=(await tx.execute("SELECT version FROM schema_migrations WHERE version=7")).rows.length;
+    if(!seventh){
+      await tx.execute(`CREATE TABLE travel_entries (
+        id TEXT PRIMARY KEY,author_id TEXT NOT NULL,title TEXT NOT NULL,body TEXT NOT NULL,
+        place_name TEXT NOT NULL,place_id TEXT,canonical_name TEXT NOT NULL DEFAULT '',country_label TEXT NOT NULL DEFAULT '',
+        longitude REAL NOT NULL CHECK(longitude BETWEEN -180 AND 180),latitude REAL NOT NULL CHECK(latitude BETWEEN -90 AND 90),
+        region TEXT NOT NULL,location_kind TEXT NOT NULL CHECK(location_kind IN ('catalog','manual')),
+        visibility TEXT NOT NULL DEFAULT 'private' CHECK(visibility IN ('private','public')),hidden INTEGER NOT NULL DEFAULT 0,
+        revision INTEGER NOT NULL DEFAULT 0,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,
+        send_key TEXT NOT NULL,UNIQUE(author_id,send_key))`);
+      await tx.execute("CREATE INDEX idx_travel_public ON travel_entries(visibility,hidden,region,created_at,id)");
+      await tx.execute("CREATE INDEX idx_travel_author ON travel_entries(author_id,created_at)");
+      await tx.execute(`CREATE TABLE travel_reports (
+        id TEXT PRIMARY KEY,entry_id TEXT NOT NULL,reporter_id TEXT NOT NULL,reason TEXT NOT NULL,
+        title_snapshot TEXT NOT NULL,body_snapshot TEXT NOT NULL,created_at INTEGER NOT NULL,UNIQUE(entry_id,reporter_id))`);
+      await tx.execute({sql:"INSERT INTO schema_migrations(version,applied_at) VALUES(7,?)",args:[Date.now()]});
+    }
     const cols = (await tx.execute("PRAGMA table_info(users)")).rows.map((c) =>
       String(c.name),
     );
