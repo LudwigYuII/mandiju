@@ -1,5 +1,6 @@
 "use client";
 import { useActionState, useEffect, useRef, useState } from "react";
+import { readingAction } from "@/lib/reading-actions";
 import { gatheringAction } from "@/lib/gathering-actions";
 import { literaryAction } from "@/lib/literary-actions";
 import { UiText } from "./UiText";
@@ -11,6 +12,7 @@ export default function LiteraryForm({
   children,
   draftKey,
   gathering = false,
+  reading = false,
 }: {
   op: string;
   fields?: Record<string, string>;
@@ -18,9 +20,10 @@ export default function LiteraryForm({
   children?: ReactNode;
   draftKey?: string;
   gathering?: boolean;
+  reading?: boolean;
 }) {
   const [state, action, pending] = useActionState(
-      gathering ? gatheringAction : literaryAction,
+      reading ? readingAction : gathering ? gatheringAction : literaryAction,
       {},
     ),
     ref = useRef<HTMLFormElement>(null);
@@ -36,7 +39,7 @@ export default function LiteraryForm({
     if (!key || !ref.current) return;
     try {
       const d = JSON.parse(sessionStorage.getItem(key) || "{}");
-      for (const name of ["title", "body", "intro", "rhyme", "work_title"]) {
+      for (const name of ["title", "body", "intro", "rhyme", "work_title", "copy_body", "note"]) {
         const field = ref.current.elements.namedItem(name);
         if (
           (field instanceof HTMLInputElement ||
@@ -65,7 +68,7 @@ export default function LiteraryForm({
     try {
       const data = new FormData(ref.current),
         draft: Record<string, string> = {};
-      for (const name of ["title", "body", "intro", "rhyme", "work_title"]) {
+      for (const name of ["title", "body", "intro", "rhyme", "work_title", "copy_body", "note"]) {
         const v = data.get(name);
         if (typeof v === "string") draft[name] = v;
       }
