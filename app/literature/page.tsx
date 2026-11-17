@@ -16,7 +16,7 @@ export default async function Literature({
     page = Number.isSafeInteger(n) && n > 0 ? Math.min(n, 10000) : 1;
   const [spaces, own, me] = await Promise.all([
     db.execute({
-      sql: `SELECT s.id,s.title,s.intro,s.visibility,s.created_at,s.closed,u.pen_name,m.status FROM literary_spaces s JOIN public_users u ON u.id=s.owner_id LEFT JOIN literary_members m ON m.space_id=s.id AND m.user_id=? WHERE s.owner_id=? OR (s.hidden=0 AND (s.visibility='public' OR (m.status IN ('joined','invited') AND NOT EXISTS(SELECT 1 FROM user_blocks b WHERE (b.blocker_id=s.owner_id AND b.blocked_id=?) OR (b.blocker_id=? AND b.blocked_id=s.owner_id))))) ORDER BY s.created_at DESC,s.id LIMIT 20 OFFSET ?`,
+      sql: `SELECT s.id,s.title,s.intro,s.visibility,s.created_at,s.closed,u.pen_name,m.status FROM literary_spaces s JOIN public_users u ON u.id=s.owner_id LEFT JOIN literary_members m ON m.space_id=s.id AND m.user_id=? WHERE s.kind='scroll' AND (s.owner_id=? OR (s.hidden=0 AND (s.visibility='public' OR (m.status IN ('joined','invited') AND NOT EXISTS(SELECT 1 FROM user_blocks b WHERE (b.blocker_id=s.owner_id AND b.blocked_id=?) OR (b.blocker_id=? AND b.blocked_id=s.owner_id))))) ) ORDER BY s.created_at DESC,s.id LIMIT 20 OFFSET ?`,
       args: [uid, uid, uid, uid, (page - 1) * 20],
     }),
     uid

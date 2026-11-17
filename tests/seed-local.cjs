@@ -88,6 +88,11 @@ const fs = require("node:fs");
   for(const id of ['fixture-private-scroll','fixture-public-scroll'])await db.execute({sql:"INSERT INTO literary_members(space_id,user_id,status,created_at) VALUES(?,'fixture-a','joined',?)",args:[id,now]});
   await db.execute({sql:"INSERT INTO literary_members(space_id,user_id,status,created_at) VALUES('fixture-private-scroll','fixture-b','invited',?)",args:[now]});
   await db.execute({sql:"INSERT INTO literary_entries(id,space_id,author_id,position,title,body,created_at,send_key) VALUES('fixture-private-work','fixture-private-scroll','fixture-a',1,'PRIVATE_WORK_TITLE','PRIVATE_WORK_BODY',?,'private-work-key'),('fixture-public-work','fixture-public-scroll','fixture-a',1,'PUBLIC_WORK_TITLE','春[[江|引文出处]]水',?,'public-work-key')",args:[now,now]});
+  for(const [id,visibility] of [['fixture-private-gathering','private'],['fixture-public-gathering','public']]) {
+    await db.execute({sql:"INSERT INTO literary_spaces(id,owner_id,kind,title,intro,visibility,capacity,created_at,send_key,starts_at,ends_at,event_timezone) VALUES(?,'fixture-a','gathering',?,'雅集简介',?,12,?,?,?,?,'Asia/Shanghai')",args:[id,visibility==='private'?'PRIVATE_GATHERING_TITLE':'PUBLIC_GATHERING_TITLE',visibility,now,id+'-key',now-60000,now+3600000]});
+    await db.execute({sql:"INSERT INTO literary_members(space_id,user_id,status,created_at) VALUES(?,'fixture-a','joined',?),(?,'fixture-b','invited',?)",args:[id,now,id,now]});
+    await db.execute({sql:"INSERT INTO gathering_posts(id,space_id,author_id,body,created_at,archive_consent,send_key) VALUES(?,?,'fixture-a',?,?,1,?)",args:[id+'-post',id,visibility==='private'?'PRIVATE_GATHERING_BODY':'PUBLIC_GATHERING_BODY',now,id+'-post-key']});
+  }
   const tokens = {};
   for (const id of ["fixture-a", "fixture-b", "fixture-c"])
     tokens[id] = await new SignJWT({ uid: id, av: 0 })

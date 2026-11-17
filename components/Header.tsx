@@ -29,6 +29,7 @@ export default function Header() {
           </Link>
           <Link href="/visits" className="hover:text-ink"><UiText text="拜帖与赠答"/></Link>
           <Link href="/literature" className="hover:text-ink"><UiText text="唱和卷"/></Link>
+          <Link href="/gatherings" className="hover:text-ink"><UiText text="雅集"/></Link>
           <NotificationBell />
           <Link
             href="/settings"
