@@ -263,3 +263,19 @@ test('reading pages and real forms keep private copies out of HTML and other-day
  assert.ok(!(await page('/reading/review','fixture-c')).text.includes('HTTP_PRIVATE_READING_COPY'));
  const seasons=await page('/seasons');assert.equal(seasons.status,200);assert.ok(seasons.text.includes('节气与岁时'));
 });
+
+test('travel HTML, public pins and real edit actions respect private scope and withdrawal',{skip:!origin},async()=>{
+ async function submit(route,id,op,values){const {text}=await page(route,id),form=[...text.matchAll(/<form\b[^>]*>[\s\S]*?<\/form>/g)].map(m=>m[0]).find(x=>x.includes(`name="op" value="${op}"`));assert.ok(form,op+' form renders');const decode=s=>s.replace(/&quot;/g,'"').replace(/&#x27;|&#39;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');const data=new FormData();for(const m of form.matchAll(/<input\b[^>]*>/g)){const name=m[0].match(/name="([^"]*)"/)?.[1],value=m[0].match(/value="([^"]*)"/)?.[1]||'';if(name)data.append(decode(name),decode(value));}for(const[k,v]of Object.entries(values))data.set(k,v);const r=await fetch(origin+route,{method:'POST',headers:{cookie:cookie(id),origin},body:data,redirect:'manual'});assert.ok(r.status<400,op);return r;}
+ const home=await page('/travel');assert.equal(home.status,200);assert.ok(home.text.includes('云游地图'));assert.ok(!home.text.includes('PENDING_PRIVATE_TITLE'));
+ const search=await fetch(origin+'/api/travel/places?q='+encodeURIComponent('京都'));assert.equal(search.status,200);const found=await search.json();assert.ok(found.places.some(p=>p.english==='Kyoto'));
+ const form={title:'HTTP_PRIVATE_TRAVEL_TITLE',body:'HTTP_PRIVATE_TRAVEL_BODY',location_kind:'manual',place_name:'HTTP_PRIVATE_TRAVEL_PLACE',longitude:'120.15',latitude:'30.27',visibility:'private'};
+ const created=await submit('/travel/new','fixture-a','save',form),route=created.headers.get('location');assert.match(route,/^\/travel\//);
+ assert.ok((await page(route,'fixture-a')).text.includes(form.body));
+ for(const uid of [null,'fixture-b']){for(const path of [route,route+'/edit','/travel','/travel/mine']){const r=await page(path,uid);assert.ok(!r.text.includes(form.title));assert.ok(!r.text.includes(form.body));assert.ok(!r.text.includes(form.place_name));}}
+ assert.ok((await page('/travel/mine','fixture-a')).text.includes(form.title));
+ await submit(route+'/edit','fixture-a','save',{...form,visibility:'public',consent:'on'});
+ const pub=await page(route);assert.ok(pub.text.includes(form.body));const map=await page('/travel');assert.ok(map.text.includes(form.title));assert.ok(map.text.includes(form.place_name));
+ await submit(route,'fixture-a','private',{});
+ assert.ok(!(await page(route)).text.includes(form.body));assert.ok(!(await page('/travel')).text.includes(form.title));
+ const assets=await fetch(origin+'/geography/world-land.json');assert.equal(assets.status,200);assert.ok((await assets.json()).length>100);
+});
