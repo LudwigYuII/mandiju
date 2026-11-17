@@ -1,5 +1,6 @@
 "use client";
 import { useActionState, useEffect, useRef, useState } from "react";
+import { journalAction } from "@/lib/journal-actions";
 import { travelAction } from "@/lib/travel-actions";
 import { readingAction } from "@/lib/reading-actions";
 import { gatheringAction } from "@/lib/gathering-actions";
@@ -15,6 +16,7 @@ export default function LiteraryForm({
   gathering = false,
   reading = false,
   travel = false,
+  journal = false,
 }: {
   op: string;
   fields?: Record<string, string>;
@@ -24,9 +26,10 @@ export default function LiteraryForm({
   gathering?: boolean;
   reading?: boolean;
   travel?: boolean;
+  journal?: boolean;
 }) {
   const [state, action, pending] = useActionState(
-      travel ? travelAction : reading ? readingAction : gathering ? gatheringAction : literaryAction,
+      journal ? journalAction : travel ? travelAction : reading ? readingAction : gathering ? gatheringAction : literaryAction,
       {},
     ),
     ref = useRef<HTMLFormElement>(null);
@@ -42,7 +45,7 @@ export default function LiteraryForm({
     if (!key || !ref.current) return;
     try {
       const d = JSON.parse(sessionStorage.getItem(key) || "{}");
-      for (const name of ["title", "body", "intro", "rhyme", "work_title", "copy_body", "note", "place_name"]) {
+      for (const name of ["title", "body", "intro", "rhyme", "work_title", "copy_body", "note", "place_name", "byline", "foreword", "editor_note"]) {
         const field = ref.current.elements.namedItem(name);
         if (
           (field instanceof HTMLInputElement ||
@@ -71,7 +74,7 @@ export default function LiteraryForm({
     try {
       const data = new FormData(ref.current),
         draft: Record<string, string> = {};
-      for (const name of ["title", "body", "intro", "rhyme", "work_title", "copy_body", "note", "place_name"]) {
+      for (const name of ["title", "body", "intro", "rhyme", "work_title", "copy_body", "note", "place_name", "byline", "foreword", "editor_note"]) {
         const v = data.get(name);
         if (typeof v === "string") draft[name] = v;
       }

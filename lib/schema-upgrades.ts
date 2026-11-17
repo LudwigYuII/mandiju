@@ -223,6 +223,28 @@ export async function upgradeSchema(db: Client) {
         title_snapshot TEXT NOT NULL,body_snapshot TEXT NOT NULL,created_at INTEGER NOT NULL,UNIQUE(entry_id,reporter_id))`);
       await tx.execute({sql:"INSERT INTO schema_migrations(version,applied_at) VALUES(7,?)",args:[Date.now()]});
     }
+    const eighth=(await tx.execute("SELECT version FROM schema_migrations WHERE version=8")).rows.length;
+    if(!eighth){
+      await tx.execute(`CREATE TABLE journal_issues (
+        id TEXT PRIMARY KEY,title TEXT NOT NULL,period TEXT NOT NULL,foreword TEXT NOT NULL DEFAULT '',
+        state TEXT NOT NULL DEFAULT 'draft' CHECK(state IN ('draft','open','proof','published','withdrawn')),
+        revision INTEGER NOT NULL DEFAULT 0,created_by TEXT NOT NULL,created_at INTEGER NOT NULL,
+        published_at INTEGER,send_key TEXT NOT NULL UNIQUE)`);
+      await tx.execute(`CREATE TABLE journal_submissions (
+        id TEXT PRIMARY KEY,issue_id TEXT NOT NULL,author_id TEXT NOT NULL,title TEXT NOT NULL,body TEXT NOT NULL,
+        byline TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'draft' CHECK(state IN ('draft','submitted','selected','declined','withdrawn')),
+        revision INTEGER NOT NULL DEFAULT 0,approved_revision INTEGER,approved_issue_revision INTEGER,
+        position INTEGER NOT NULL DEFAULT 0,section TEXT NOT NULL DEFAULT '',editor_note TEXT NOT NULL DEFAULT '',
+        hidden INTEGER NOT NULL DEFAULT 0,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,
+        reviewed_at INTEGER,publish_consent_at INTEGER,send_key TEXT NOT NULL,UNIQUE(author_id,send_key))`);
+      await tx.execute("CREATE INDEX idx_journal_author ON journal_submissions(author_id,created_at,id)");
+      await tx.execute("CREATE INDEX idx_journal_issue ON journal_submissions(issue_id,state,position,id)");
+      await tx.execute(`CREATE TABLE journal_reports (
+        id TEXT PRIMARY KEY,submission_id TEXT NOT NULL,reporter_id TEXT NOT NULL,reason TEXT NOT NULL,
+        title_snapshot TEXT NOT NULL,body_snapshot TEXT NOT NULL,created_at INTEGER NOT NULL,
+        UNIQUE(submission_id,reporter_id))`);
+      await tx.execute({sql:"INSERT INTO schema_migrations(version,applied_at) VALUES(8,?)",args:[Date.now()]});
+    }
     const cols = (await tx.execute("PRAGMA table_info(users)")).rows.map((c) =>
       String(c.name),
     );

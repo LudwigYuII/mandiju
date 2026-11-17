@@ -279,3 +279,26 @@ test('travel HTML, public pins and real edit actions respect private scope and w
  assert.ok(!(await page(route)).text.includes(form.body));assert.ok(!(await page('/travel')).text.includes(form.title));
  const assets=await fetch(origin+'/geography/world-land.json');assert.equal(assets.status,200);assert.ok((await assets.json()).length>100);
 });
+
+test('quarterly HTTP forms keep drafts and proof PDFs private and revoke public HTML/PDF after withdrawal',{skip:!origin},async()=>{
+ const {createClient}=require('@libsql/client'),{journalMutation}=require('../lib/journal-service.ts');const client=createClient({url:'file:'+process.env.MDJ_DB});
+ async function submit(route,uid,op,values){const{text}=await page(route,uid),form=[...text.matchAll(/<form\b[^>]*>[\s\S]*?<\/form>/g)].map(m=>m[0]).find(x=>x.includes(`name="op" value="${op}"`));assert.ok(form,op+' form');const decode=s=>s.replace(/&quot;/g,'"').replace(/&#x27;|&#39;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');const data=new FormData();for(const m of form.matchAll(/<input\b[^>]*>/g)){const name=m[0].match(/name="([^"]*)"/)?.[1],value=m[0].match(/value="([^"]*)"/)?.[1]||'';if(name&&!m[0].includes('type="checkbox"'))data.append(decode(name),decode(value));}for(const[k,v]of Object.entries(values))data.set(k,v);const r=await fetch(origin+route,{method:'POST',headers:{cookie:cookie(uid),origin},body:data,redirect:'manual'});assert.ok(r.status<400,op);return r;}
+ try{
+  const admin=String((await client.execute("SELECT id FROM users WHERE role='admin' LIMIT 1")).rows[0].id);await client.execute({sql:"UPDATE users SET literary_name='站主' WHERE id=?",args:[admin]});const now=Date.now(),run=(u,op,d)=>journalMutation(client,u,op,d,now);
+  const{issue}=await run(admin,'issue-save',{title:'HTTP刊期',period:'二〇二六年冬',foreword:'公开刊首语',send_key:'http-journal-issue-key'});await run(admin,'issue-state',{id:issue,revision:'0',state:'open'});
+  await submit('/journal/new?issue='+issue,'fixture-a','save',{title:'PRIVATE_JOURNAL_HTTP_TITLE',body:'PRIVATE_JOURNAL_HTTP_BODY',byline:'甲笺'});
+  const entry=(await client.execute({sql:'SELECT * FROM journal_submissions WHERE issue_id=?',args:[issue]})).rows[0],id=String(entry.id),route='/journal/submission/'+id;
+  for(const uid of [null,'fixture-b']){const r=await page(route,uid);assert.ok(!r.text.includes('PRIVATE_JOURNAL_HTTP_TITLE'));assert.ok(!r.text.includes('PRIVATE_JOURNAL_HTTP_BODY'));}
+  await client.execute("UPDATE users SET role='admin' WHERE id='fixture-c'");let edit=await page('/journal/edit/'+issue,'fixture-c');assert.ok(!edit.text.includes('PRIVATE_JOURNAL_HTTP_TITLE'));assert.ok(!edit.text.includes('PRIVATE_JOURNAL_HTTP_BODY'));
+  await submit(route,'fixture-a','save',{title:'PUBLIC_JOURNAL_HTTP_TITLE',body:'PUBLIC_JOURNAL_HTTP_BODY 繁體與简体',byline:'甲笺',submit:'on',review_consent:'on'});
+  edit=await page('/journal/edit/'+issue,'fixture-c');assert.ok(edit.text.includes('PUBLIC_JOURNAL_HTTP_BODY'));await client.execute("UPDATE users SET role='member' WHERE id='fixture-c'");
+  await run(admin,'select',{id,revision:'1',issue_revision:'0',selected:'on',position:'1'});await run(admin,'issue-state',{id:issue,revision:'1',state:'proof'});
+  for(const uid of [null,'fixture-b'])assert.equal((await fetch(origin+route+'/pdf',{headers:{cookie:cookie(uid)}})).status,404);
+  const proof=await fetch(origin+route+'/pdf',{headers:{cookie:cookie('fixture-a')}});assert.equal(proof.status,200);assert.equal(proof.headers.get('content-type'),'application/pdf');assert.equal(proof.headers.get('cache-control'),'private, no-store');assert.equal(Buffer.from(await proof.arrayBuffer()).subarray(0,5).toString(),'%PDF-');
+  assert.equal((await fetch(origin+'/journal/'+issue+'/pdf')).status,404);assert.ok(!(await page('/journal/'+issue)).text.includes('PUBLIC_JOURNAL_HTTP_BODY'));
+  await submit(route,'fixture-a','approve',{consent:'on'});await run(admin,'issue-state',{id:issue,revision:'1',state:'published',consent:'on'});
+  assert.ok((await page('/journal/'+issue)).text.includes('PUBLIC_JOURNAL_HTTP_BODY'));const pdf=await fetch(origin+'/journal/'+issue+'/pdf');assert.equal(pdf.status,200);assert.equal(pdf.headers.get('cache-control'),'private, no-store');assert.equal(Buffer.from(await pdf.arrayBuffer()).subarray(0,5).toString(),'%PDF-');
+  await submit(route,'fixture-a','withdraw',{});assert.ok(!(await page('/journal/'+issue)).text.includes('PUBLIC_JOURNAL_HTTP_BODY'));assert.ok((await page(route,'fixture-a')).text.includes('PUBLIC_JOURNAL_HTTP_BODY'));assert.equal((await fetch(origin+route+'/pdf',{headers:{cookie:cookie('fixture-a')}})).status,404);
+  await run(admin,'issue-state',{id:issue,revision:'1',state:'withdrawn',consent:'on'});assert.equal((await fetch(origin+'/journal/'+issue+'/pdf')).status,404);
+ }finally{client.close();}
+});

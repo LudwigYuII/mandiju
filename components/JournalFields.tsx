@@ -1,0 +1,5 @@
+import type {ReactNode} from 'react';
+import {UiText,UiInput,UiTextarea} from './UiText';
+export function JournalField({label,name,value='',max=80,rows=0,required=true}:{label:string;name:string;value?:string;max?:number;rows?:number;required?:boolean}){return <label className="block space-y-2"><span className="text-sm"><UiText text={label}/></span>{rows?<UiTextarea className="input w-full" name={name} defaultValue={value} maxLength={max} rows={rows} required={required}/>:<UiInput className="input w-full" name={name} defaultValue={value} maxLength={max} required={required}/>}</label>;}
+export function JournalCheck({name='consent',children}:{name?:string;children:ReactNode}){return <label className="flex items-start gap-3 text-sm leading-loose"><UiInput className="mt-2" type="checkbox" name={name} required/>{children}</label>;}
+export function JournalNotice(){return <p className="text-sm leading-loose text-ink-soft"><UiText text="投稿只授权编辑审阅；选稿后仍须确认具体校样，才会公开并收录PDF。撤稿后站内阅读和新下载不再包含此文，已经下载或复制的版本无法追回。"/></p>;}

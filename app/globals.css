@@ -673,3 +673,13 @@ textarea.input {line-height:1.95;padding:1rem;}
 .literary-annotation {position:relative;display:inline;}
 .literary-note {position:fixed;z-index:60;bottom:1rem;left:max(1rem,calc((100vw - 42rem)/2));right:max(1rem,calc((100vw - 42rem)/2));display:block;max-height:40vh;overflow:auto;padding:1rem;border:1px solid #D8D0C1;background:var(--paper,#F7F4EC);color:var(--ink,#292722);box-shadow:0 .5rem 1.5rem #0001;writing-mode:horizontal-tb;font-size:.875rem;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere;}
 .dark .literary-note {background:#292722;color:#F7F4EC;}
+
+/* Literary quarterly: paper cover, a plain reading order, and book pagination. */
+.journal-cover { background: linear-gradient(135deg,rgba(170,146,110,.07),transparent 70%); }
+.journal-article { scroll-margin-top: 9rem; overflow-wrap:anywhere; }
+@media print {
+  .journal-book .journal-cover {break-after:page; padding-block:7rem;}
+  .journal-book .journal-article {break-before:page; border:0;}
+  .journal-book h2, .journal-book h3 {break-after:avoid;}
+  .journal-book p {orphans:3; widows:3;}
+}
