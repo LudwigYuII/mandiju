@@ -1,5 +1,6 @@
 "use client";
 import { useActionState, useEffect, useRef, useState } from "react";
+import { gatheringAction } from "@/lib/gathering-actions";
 import { literaryAction } from "@/lib/literary-actions";
 import { UiText } from "./UiText";
 import type { ReactNode } from "react";
@@ -9,14 +10,19 @@ export default function LiteraryForm({
   label,
   children,
   draftKey,
+  gathering = false,
 }: {
   op: string;
   fields?: Record<string, string>;
   label: string;
   children?: ReactNode;
   draftKey?: string;
+  gathering?: boolean;
 }) {
-  const [state, action, pending] = useActionState(literaryAction, {}),
+  const [state, action, pending] = useActionState(
+      gathering ? gatheringAction : literaryAction,
+      {},
+    ),
     ref = useRef<HTMLFormElement>(null);
   const [hasDraft, setHasDraft] = useState(false),
     [saved, setSaved] = useState(false);

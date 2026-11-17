@@ -154,6 +154,38 @@ export async function upgradeSchema(db: Client) {
         args: [Date.now()],
       });
     }
+    const fifth = (
+      await tx.execute("SELECT version FROM schema_migrations WHERE version=5")
+    ).rows.length;
+    if (!fifth) {
+      await tx.execute(
+        "ALTER TABLE literary_spaces ADD COLUMN starts_at INTEGER",
+      );
+      await tx.execute(
+        "ALTER TABLE literary_spaces ADD COLUMN ends_at INTEGER",
+      );
+      await tx.execute(
+        "ALTER TABLE literary_spaces ADD COLUMN event_timezone TEXT",
+      );
+      await tx.execute(
+        "ALTER TABLE literary_members ADD COLUMN archive_consent INTEGER NOT NULL DEFAULT 0",
+      );
+      await tx.execute(`CREATE TABLE gathering_posts (
+        id TEXT PRIMARY KEY, space_id TEXT NOT NULL, author_id TEXT NOT NULL, body TEXT NOT NULL,
+        created_at INTEGER NOT NULL, archive_consent INTEGER NOT NULL DEFAULT 0,
+        withdrawn INTEGER NOT NULL DEFAULT 0, hidden INTEGER NOT NULL DEFAULT 0, send_key TEXT NOT NULL,
+        UNIQUE(author_id,send_key))`);
+      await tx.execute(
+        "CREATE INDEX idx_gathering_posts_space ON gathering_posts(space_id,created_at,id)",
+      );
+      await tx.execute(`CREATE TABLE gathering_reports (
+        id TEXT PRIMARY KEY,target_kind TEXT NOT NULL CHECK(target_kind IN ('post','space')),target_id TEXT NOT NULL,
+        reporter_id TEXT NOT NULL,reason TEXT NOT NULL,created_at INTEGER NOT NULL,UNIQUE(target_kind,target_id,reporter_id))`);
+      await tx.execute({
+        sql: "INSERT INTO schema_migrations(version,applied_at) VALUES(5,?)",
+        args: [Date.now()],
+      });
+    }
     const cols = (await tx.execute("PRAGMA table_info(users)")).rows.map((c) =>
       String(c.name),
     );

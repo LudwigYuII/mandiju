@@ -17,10 +17,10 @@ export function siteDateKey(date: Date = new Date()) {
   const p = siteDateParts(date);
   return `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
 }
-export function formatSiteTime(ms: number) {
+export function formatSiteTime(ms: number, timeZone = SITE_TIME_ZONE) {
   if(ms >= 253402300799000) return "暂存中";
   return new Intl.DateTimeFormat("zh-Hans", {
-    timeZone: SITE_TIME_ZONE,
+    timeZone,
     year: "numeric",
     month: "short",
     day: "numeric",

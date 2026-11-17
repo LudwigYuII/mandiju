@@ -79,6 +79,8 @@ export default async function Home() {
             <UiText text={"阅读作者主动公开的作品。"} />
           </p>
         </Link>
+        <Link className="desk-link" href="/literature"><h2><UiText text="展一卷唱和"/></h2><p><UiText text="诸友依序相和，不计高下。"/></p></Link>
+        <Link className="desk-link" href="/gatherings"><h2><UiText text="赴一场雅集"/></h2><p><UiText text="同题闲叙，散席留序。"/></p></Link>
       </section>
       <p className="border-t border-black/10 pt-6 text-sm leading-loose text-ink-soft dark:border-white/10">
         <UiText text={"有古意，而不作古；有人情，而不喧哗。"} />

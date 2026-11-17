@@ -7,7 +7,7 @@ const audience = `(s.owner_id=? OR (s.hidden=0 AND (s.visibility='public' OR EXI
 export async function readSpace(q: Sql, id: string, viewer = "") {
   return (
     await q.execute({
-      sql: `SELECT s.*,u.pen_name,u.seal_text FROM literary_spaces s JOIN public_users u ON u.id=s.owner_id WHERE s.id=? AND ((${audience}) OR (s.hidden=0 AND EXISTS(SELECT 1 FROM literary_members m WHERE m.space_id=s.id AND m.user_id=? AND m.status='invited') AND NOT EXISTS(SELECT 1 FROM user_blocks b WHERE (b.blocker_id=s.owner_id AND b.blocked_id=?) OR (b.blocker_id=? AND b.blocked_id=s.owner_id))))`,
+      sql: `SELECT s.*,u.pen_name,u.seal_text FROM literary_spaces s JOIN public_users u ON u.id=s.owner_id WHERE s.kind='scroll' AND s.id=? AND ((${audience}) OR (s.hidden=0 AND EXISTS(SELECT 1 FROM literary_members m WHERE m.space_id=s.id AND m.user_id=? AND m.status='invited') AND NOT EXISTS(SELECT 1 FROM user_blocks b WHERE (b.blocker_id=s.owner_id AND b.blocked_id=?) OR (b.blocker_id=? AND b.blocked_id=s.owner_id))))`,
       args: [id, viewer, viewer, viewer, viewer, viewer, viewer, viewer],
     })
   ).rows[0];
@@ -20,7 +20,7 @@ export async function readEntries(q: Sql, id: string, viewer = "", offset = 0) {
     CASE WHEN e.withdrawn=1 AND e.author_id<>? THEN '' ELSE e.body END AS body,
     CASE WHEN e.withdrawn=1 AND e.author_id<>? THEN '' ELSE e.rhyme END AS rhyme
     FROM literary_entries e JOIN literary_spaces s ON s.id=e.space_id JOIN public_users u ON u.id=e.author_id
-    WHERE s.id=? AND ${audience} AND (e.hidden=0 OR e.author_id=?) ORDER BY e.position ASC LIMIT 24 OFFSET ?`,
+    WHERE s.kind='scroll' AND s.id=? AND ${audience} AND (e.hidden=0 OR e.author_id=?) ORDER BY e.position ASC LIMIT 24 OFFSET ?`,
       args: [
         viewer,
         viewer,
@@ -39,7 +39,7 @@ export async function readEntries(q: Sql, id: string, viewer = "", offset = 0) {
 export async function readEntry(q: Sql, id: string, viewer = "") {
   return (
     await q.execute({
-      sql: `SELECT e.*,s.visibility,s.title AS space_title,u.pen_name,u.seal_text FROM literary_entries e JOIN literary_spaces s ON s.id=e.space_id JOIN public_users u ON u.id=e.author_id WHERE e.id=? AND (e.author_id=? OR (${audience} AND e.withdrawn=0 AND e.hidden=0))`,
+      sql: `SELECT e.*,s.visibility,s.title AS space_title,u.pen_name,u.seal_text FROM literary_entries e JOIN literary_spaces s ON s.id=e.space_id JOIN public_users u ON u.id=e.author_id WHERE s.kind='scroll' AND e.id=? AND (e.author_id=? OR (${audience} AND e.withdrawn=0 AND e.hidden=0))`,
       args: [id, viewer, viewer, viewer, viewer, viewer],
     })
   ).rows[0];
@@ -90,7 +90,7 @@ export async function readColophons(
     })
   ).rows;
 }
-async function active(q: Sql, id: string) {
+export async function active(q: Sql, id: string) {
   const u = (
     await q.execute({
       sql: "SELECT id,literary_name,role FROM users WHERE id=? AND banned=0",
@@ -100,7 +100,7 @@ async function active(q: Sql, id: string) {
   if (!u?.literary_name) throw new Error("请先题定雅号");
   return u;
 }
-async function allowance(
+export async function allowance(
   q: Sql,
   actor: string,
   kind: string,
@@ -285,7 +285,7 @@ export async function literaryMutation(
       const id = plainText(data.id, 100, 1);
       const space = (
         await tx.execute({
-          sql: "SELECT * FROM literary_spaces WHERE id=?",
+          sql: "SELECT * FROM literary_spaces WHERE kind='scroll' AND id=?",
           args: [id],
         })
       ).rows[0];

@@ -217,3 +217,25 @@ test('real literary pages and form actions protect scroll invitation and colopho
   assert.ok((await page(location,'fixture-c')).text.includes('NEW_PRIVATE_SCROLL_BODY'));
   assert.ok(!(await page(location)).text.includes('NEW_PRIVATE_SCROLL_BODY'));
 });
+
+test('gathering HTML and real forms isolate private invitations and freeze the consent-filtered archive',{skip:!origin},async()=>{
+ const route='/gatherings/fixture-private-gathering';
+ const listing=await page('/gatherings');assert.ok(listing.text.includes('PUBLIC_GATHERING_TITLE'));assert.ok(!listing.text.includes('PRIVATE_GATHERING_TITLE'));
+ assert.ok(!(await page('/literature')).text.includes('PUBLIC_GATHERING_TITLE'));
+ for(const id of [null,'fixture-c']){const p=await page(route,id);assert.ok(!p.text.includes('PRIVATE_GATHERING_BODY'));assert.ok(!p.text.includes('PRIVATE_GATHERING_TITLE'));}
+ const invited=await page(route,'fixture-b');assert.ok(invited.text.includes('PRIVATE_GATHERING_TITLE'));assert.ok(!invited.text.includes('PRIVATE_GATHERING_BODY'));
+ async function submit(op,actor,values={}){
+  const {text}=await page(route,actor),html=[...text.matchAll(/<form\b[^>]*>[\s\S]*?<\/form>/g)].map(m=>m[0]).find(x=>x.includes(`name="op" value="${op}"`));assert.ok(html,op+' renders');
+  const decode=s=>s.replace(/&quot;/g,'"').replace(/&#x27;|&#39;/g,"'").replace(/&amp;/g,'&');const form=new FormData();
+  for(const [tag] of html.matchAll(/<input\b[^>]*>/g)){const name=tag.match(/name="([^"]*)"/)?.[1],value=tag.match(/value="([^"]*)"/)?.[1]||'';if(name&&!tag.includes('type="checkbox"'))form.append(decode(name),decode(value));}
+  for(const [k,v]of Object.entries(values))form.set(k,v);
+  const r=await fetch(origin+route,{method:'POST',headers:{cookie:cookie(actor),origin},body:form,redirect:'manual'});assert.ok(r.status<400,op);return r;
+ }
+ await submit('join','fixture-b',{consent:'on'});assert.ok((await page(route,'fixture-b')).text.includes('PRIVATE_GATHERING_BODY'));
+ await submit('post','fixture-b',{body:'UNARCHIVED_GATHERING_BODY',consent:'on'});
+ assert.ok((await page(route,'fixture-a')).text.includes('UNARCHIVED_GATHERING_BODY'));
+ await submit('close','fixture-a');
+ const archive=await page(route,'fixture-b');assert.ok(archive.text.includes('PRIVATE_GATHERING_BODY'));assert.ok(!archive.text.includes('UNARCHIVED_GATHERING_BODY'));assert.ok(!archive.text.includes('name="op" value="post"'));assert.ok(archive.text.includes('集序'));
+ assert.ok((await page('/gatherings','fixture-b')).text.includes('UNARCHIVED_GATHERING_BODY'),'own original remains available');
+ assert.ok(!(await page(route,'fixture-c')).text.includes('PRIVATE_GATHERING_BODY'));
+});
