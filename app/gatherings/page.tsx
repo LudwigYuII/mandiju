@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { db, waitDb } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { ensureSeasonalGatherings } from "@/lib/seasonal-service";
 import { listGatherings } from "@/lib/gathering-service";
 import { gatheringPhase } from "@/lib/gathering-policy";
 import { formatSiteTime } from "@/lib/time";
@@ -13,6 +14,7 @@ export default async function Gatherings({
   searchParams: Promise<{ page?: string }>;
 }) {
   await waitDb();
+  await ensureSeasonalGatherings(db);
   const s = await getSession(),
     uid = s?.uid || "",
     n = Number((await searchParams).page),

@@ -239,3 +239,27 @@ test('gathering HTML and real forms isolate private invitations and freeze the c
  assert.ok((await page('/gatherings','fixture-b')).text.includes('UNARCHIVED_GATHERING_BODY'),'own original remains available');
  assert.ok(!(await page(route,'fixture-c')).text.includes('PRIVATE_GATHERING_BODY'));
 });
+
+test('reading pages and real forms keep private copies out of HTML and other-day cohorts',{skip:!origin},async()=>{
+ async function submit(route,id,op,values){
+  const {text}=await page(route,id),form=[...text.matchAll(/<form\b[^>]*>[\s\S]*?<\/form>/g)].map(m=>m[0]).find(x=>x.includes(`name="op" value="${op}"`));assert.ok(form,op+' form renders');
+  const decode=s=>s.replace(/&quot;/g,'"').replace(/&#x27;|&#39;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');const data=new FormData();
+  for(const m of form.matchAll(/<input\b[^>]*>/g)){const name=m[0].match(/name="([^"]*)"/)?.[1],value=m[0].match(/value="([^"]*)"/)?.[1]||'';if(name)data.append(decode(name),decode(value));}
+  for(const [k,v]of Object.entries(values))data.set(k,v);
+  const r=await fetch(origin+route,{method:'POST',headers:{cookie:cookie(id),origin},body:data,redirect:'manual'});assert.ok(r.status<400,op);return r;
+ }
+ const r=await page('/reading');assert.equal(r.status,200);assert.ok(r.text.includes('共读抄书'));assert.ok(r.text.includes('CC BY-SA 4.0'));
+ await submit('/reading','fixture-a','save',{copy_body:'HTTP_PRIVATE_READING_COPY',note:'HTTP_SHARED_READING_NOTE',share:'on',consent:'on'});
+ for(const uid of [null,'fixture-b','fixture-c']){const outsider=await page('/reading',uid);assert.ok(!outsider.text.includes('HTTP_PRIVATE_READING_COPY'));assert.ok(!outsider.text.includes('HTTP_SHARED_READING_NOTE'));}
+ await submit('/reading','fixture-b','save',{copy_body:'B_PRIVATE_COPY',note:'B_PRIVATE_NOTE',share:'',consent:'on'});
+ const joined=await page('/reading','fixture-b');assert.ok(joined.text.includes('HTTP_SHARED_READING_NOTE'));assert.ok(!joined.text.includes('HTTP_PRIVATE_READING_COPY'));
+ assert.ok(!(await page('/reading','fixture-a')).text.includes('B_PRIVATE_NOTE'));
+ assert.ok(!(await page('/reading/mine','fixture-c')).text.includes('HTTP_PRIVATE_READING_COPY'));
+ assert.ok((await page('/reading/mine','fixture-a')).text.includes('HTTP_PRIVATE_READING_COPY'));
+ await submit('/reading','fixture-a','unshare',{});
+ assert.ok(!(await page('/reading','fixture-b')).text.includes('HTTP_SHARED_READING_NOTE'));
+ await submit('/reading','fixture-b','leave',{});
+ assert.ok((await page('/reading/mine','fixture-b')).text.includes('B_PRIVATE_COPY'));
+ assert.ok(!(await page('/reading/review','fixture-c')).text.includes('HTTP_PRIVATE_READING_COPY'));
+ const seasons=await page('/seasons');assert.equal(seasons.status,200);assert.ok(seasons.text.includes('节气与岁时'));
+});

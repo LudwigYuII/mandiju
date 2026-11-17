@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { waitDb } from "@/lib/db";
+import { ensureSeasonalGatherings } from "@/lib/seasonal-service";
+import { ensureReadingDay } from "@/lib/reading-service";
+import { db, waitDb } from "@/lib/db";
 import { sweepDelivered } from "@/lib/mail";
 import { runDailyReminders } from "@/lib/reminders";
 import { expireBurnLetters } from "@/lib/burn-db";
@@ -21,6 +23,8 @@ export async function GET(req: NextRequest) {
   }
   await waitDb();
   try {
+    await ensureSeasonalGatherings(db);
+    await ensureReadingDay(db);
     await sweepDelivered();
     await runDailyReminders();
     await expireBurnLetters();
