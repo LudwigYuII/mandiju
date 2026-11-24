@@ -3,6 +3,12 @@ import { UiText } from "@/components/UiText";
 import Reveal from "@/components/Reveal";
 
 const LOG: { v: string; date: string; items: string[] }[] = [
+  {v:"v3.0 · 同在一处",date:"2026-11-24",items:[
+    "同饮：预约一盏茶，散席后各留一句。",
+    "焚香：三十分钟静读计时，可私存札记。",
+    "听琴：按周排曲，先留听后感再展读同听者的文字。",
+    "夜话：按站点时区开席，八席为限，散场后正文停止展示。",
+  ]},
   {v:"v2.9 · 信札延伸",date:"2026-11-24",items:[
     "在线九路围棋，邀请笔友落子，双方核对死子与终局。",
     "自制花笺，选择纸色、暗纹与边饰，可赠给笔友。",

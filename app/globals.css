@@ -694,3 +694,15 @@ textarea.input {line-height:1.95;padding:1rem;}
 .dark .flower-paper { --flower-tint:#30332d; color:#f7f4ec; }
 .dark .flower-cream { --flower-tint:#393328; }
 .dark .flower-rose { --flower-tint:#40312f; }
+
+.quiet-smoke {
+  height: 4rem; width: 1rem; border-radius: 50%;
+  background: linear-gradient(transparent, currentColor);
+  opacity: .18; filter: blur(4px);
+  animation: quiet-rise 4s ease-in-out infinite;
+}
+@keyframes quiet-rise {
+  from { transform: translateY(8px) scale(.8); opacity:.12; }
+  to { transform: translateY(-12px) scale(1.4); opacity:0; }
+}
+@media (prefers-reduced-motion: reduce) { .quiet-smoke { animation: none; } }
