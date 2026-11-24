@@ -38,6 +38,7 @@ export default function Header() {
           <Link href="/letterbooks" className="hover:text-ink"><UiText text="尺牍集"/></Link>
           <Link href="/flower-paper" className="hover:text-ink"><UiText text="花笺"/></Link>
           <Link href="/quiet" className="hover:text-ink"><UiText text="同在一处"/></Link>
+          <Link href="/pastimes" className="hover:text-ink"><UiText text="雅戏与收藏"/></Link>
           <NotificationBell />
           <Link
             href="/settings"

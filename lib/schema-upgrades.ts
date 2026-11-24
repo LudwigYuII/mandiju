@@ -279,6 +279,15 @@ export async function upgradeSchema(db: Client) {
       ]});
       await tx.execute({sql:"INSERT INTO schema_migrations VALUES(10,?)",args:[Date.now()]});
     }
+    if (!(await tx.execute("SELECT version FROM schema_migrations WHERE version=11")).rows.length) {
+      await tx.execute("CREATE TABLE pastime_posts (id TEXT PRIMARY KEY, kind TEXT NOT NULL, owner TEXT NOT NULL, parent TEXT NOT NULL DEFAULT '', title TEXT NOT NULL DEFAULT '', body TEXT NOT NULL, answer TEXT NOT NULL DEFAULT '', created INTEGER NOT NULL, hidden INTEGER NOT NULL DEFAULT 0, marked INTEGER NOT NULL DEFAULT 0)");
+      await tx.execute("CREATE INDEX pastime_feed ON pastime_posts(kind,parent,hidden,created)");
+      await tx.execute("CREATE TABLE pastime_plants (owner TEXT PRIMARY KEY, kind TEXT NOT NULL, planted INTEGER NOT NULL)");
+      await tx.execute("CREATE TABLE pastime_stream_opt (owner TEXT PRIMARY KEY)");
+      await tx.execute("CREATE TABLE pastime_stream_draw (day TEXT PRIMARY KEY, owner TEXT NOT NULL, prompt TEXT NOT NULL, deadline INTEGER NOT NULL, done INTEGER NOT NULL DEFAULT 0)");
+      await tx.execute("CREATE TABLE pastime_stream_skip (day TEXT NOT NULL, owner TEXT NOT NULL, PRIMARY KEY(day,owner))");
+      await tx.execute({sql:"INSERT INTO schema_migrations VALUES(11,?)",args:[Date.now()]});
+    }
     const cols = (await tx.execute("PRAGMA table_info(users)")).rows.map((c) =>
       String(c.name),
     );

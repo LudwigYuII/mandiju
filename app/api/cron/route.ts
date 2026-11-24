@@ -1,3 +1,4 @@
+import { maintainPastimes } from "@/lib/pastimes";
 import { quietSchedule } from "@/lib/quiet-time";
 import { NextRequest, NextResponse } from "next/server";
 import { ensureSeasonalGatherings } from "@/lib/seasonal-service";
@@ -29,6 +30,7 @@ export async function GET(req: NextRequest) {
     await sweepDelivered();
     await runDailyReminders();
     await expireBurnLetters();
+    await maintainPastimes(db);
     const now = Date.now();
     const schedule = quietSchedule(now);
     const keep = "night:" + schedule.night;

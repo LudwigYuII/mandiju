@@ -71,6 +71,10 @@ export default async function StudyPage({
       : "none";
   const writable =
     sess && !isMe && !isBlocked ? await canWriteTo(sess.uid, uid) : false;
+  const shelf=isBlocked?[]:(await db.execute({
+    sql:"SELECT id,title,body FROM pastime_posts WHERE owner=? AND kind='shelf' AND hidden=0 ORDER BY created DESC LIMIT 12",
+    args:[uid],
+  })).rows;
   return (
     <div className="mx-auto max-w-3xl space-y-9">
       <header className="border-b border-[var(--paper-edge)] pb-7 space-y-4">
@@ -131,6 +135,14 @@ export default async function StudyPage({
           )}
         </nav>
       </header>
+      {(shelf.length>0||isMe)&&<section className="space-y-4">
+        <h2 className="text-xl"><UiText text="博古架"/></h2>
+        {isMe&&<Link href="/pastimes?tab=shelf" className="underline"><UiText text="整理博古架"/></Link>}
+        <div className="grid gap-4 sm:grid-cols-2">{shelf.map(item=><article key={String(item.id)} className="card space-y-2 p-5">
+          <h3><UiText text={item.title}/></h3><p className="whitespace-pre-wrap break-words">{String(item.body)}</p>
+        </article>)}</div>
+      </section>}
+
       <section id="courtyard" className="space-y-5 scroll-mt-32">
         <h2 className="text-xl">
           <UiText text="门庭小序" />
