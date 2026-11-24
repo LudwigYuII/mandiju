@@ -33,6 +33,10 @@ export default function Header() {
           <Link href="/reading" className="hover:text-ink"><UiText text="共读"/></Link>
           <Link href="/gatherings" className="hover:text-ink"><UiText text="雅集"/></Link>
           <Link href="/journal" className="hover:text-ink"><UiText text="季刊"/></Link>
+          <Link href="/go" className="hover:text-ink"><UiText text="围棋"/></Link>
+          <Link href="/snow" className="hover:text-ink"><UiText text="雪夜访戴"/></Link>
+          <Link href="/letterbooks" className="hover:text-ink"><UiText text="尺牍集"/></Link>
+          <Link href="/flower-paper" className="hover:text-ink"><UiText text="花笺"/></Link>
           <NotificationBell />
           <Link
             href="/settings"

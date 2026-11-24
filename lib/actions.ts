@@ -1,4 +1,5 @@
 "use server";
+import { isFloralPaper } from "@/components/paper";
 import { blockedBetween } from "./study-service";
 
 import { normalizeLiteraryName } from "./literary-name";
@@ -251,7 +252,7 @@ export async function createLetterAction(
     return { error: "火漆颜色无效" };
   if (!["plain", "wave", "star", "rings"].includes(sealPattern))
     return { error: "火漆纹样无效" };
-  if (!["plain", "xuan", "gold", "night"].includes(paper))
+  if (!["plain", "xuan", "gold", "night"].includes(paper) && !isFloralPaper(paper))
     return { error: "信纸样式无效" };
 
   // 时光胶囊：寄给未来的自己
@@ -735,9 +736,7 @@ export async function saveDraftAction(
   )
     ? needText(formData.get("sealPattern"))
     : null;
-  const paper = ["plain", "xuan", "gold", "night"].includes(
-    needText(formData.get("paper")),
-  )
+  const paper = (["plain", "xuan", "gold", "night"].includes(needText(formData.get("paper"))) || isFloralPaper(formData.get("paper")))
     ? needText(formData.get("paper"))
     : null;
   const vertical = needText(formData.get("vertical")) === "1" ? 1 : null;

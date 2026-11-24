@@ -1,3 +1,4 @@
+import { isFloralPaper } from "@/components/paper";
 import { UiText } from "@/components/UiText";
 
 import { notFound, redirect } from "next/navigation";
@@ -59,12 +60,14 @@ export default async function WritePage({
   ]);
   const meRow = me.rows[0] as any;
 
+  const floral=(await db.execute({sql:"SELECT style,name FROM floral_papers WHERE owner_id=? ORDER BY name",args:[sess.uid]})).rows.flatMap(row=>isFloralPaper(row.style)?[{id:row.style,label:String(row.name)}]:[]);
   return (
     <div className="writing-room space-y-6">
       <h1 className="rise text-3xl font-semibold tracking-tight">
         <UiText text={"写信"} />
       </h1>
       <WriteForm
+        floral={floral}
         pen={String(meRow.pen_name)}
         mySeal={String(meRow.seal_text || String(meRow.pen_name)[0] || "印")}
         penpals={penpals.map((p) => ({

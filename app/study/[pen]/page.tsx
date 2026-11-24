@@ -14,8 +14,10 @@ import LetterCard, { type LetterRow } from "@/components/LetterCard";
 export const dynamic = "force-dynamic";
 export default async function StudyPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ pen: string }>;
+  searchParams: Promise<{ snow?: string }>;
 }) {
   await waitDb();
   const { pen } = await params;
@@ -54,7 +56,8 @@ export default async function StudyPage({
   ]);
   const p = profile.rows[0],
     v = visit.rows[0];
-  const enter = canEnterStudy(
+  const snowVisit = (await searchParams).snow === "1";
+  const enter = !snowVisit && canEnterStudy(
     uid,
     sess?.uid,
     v ? String(v.status) : undefined,
