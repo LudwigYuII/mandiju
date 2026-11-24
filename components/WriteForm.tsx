@@ -135,6 +135,7 @@ export default function WriteForm({
   to,
   drafts,
   sent = 0,
+  floral = [],
 }: {
   pen: string;
   mySeal: string;
@@ -146,6 +147,7 @@ export default function WriteForm({
   to?: string;
   drafts: Draft[];
   sent?: number;
+  floral?: {id:PaperKind;label:string}[];
 }) {
   const initialDraft = !reply && !to ? drafts[0] : undefined;
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
@@ -217,7 +219,7 @@ export default function WriteForm({
   const patternLocked = (id: SealPattern) =>
     !unlocked.patterns.has(id) && sealPattern !== id;
   const paperLocked = (id: PaperKind) =>
-    !unlocked.papers.has(id) && paper !== id;
+    !unlocked.papers.has(id) && !floral.some(p=>p.id===id) && paper !== id;
 
   const isCapsule = recipient === "__future__";
   const isPostcard = genre === "postcard";
@@ -1024,7 +1026,7 @@ export default function WriteForm({
               <UiText text={"信纸"} />
             </h3>
             <div className="grid grid-cols-4 gap-2.5">
-              {PAPERS.map((p) => (
+              {[...PAPERS,...floral].map((p) => (
                 <button
                   key={p.id}
                   type="button"
@@ -1032,7 +1034,7 @@ export default function WriteForm({
                   disabled={paperLocked(p.id)}
                   title={
                     paperLocked(p.id)
-                      ? `${PAPER_LABEL[p.id]}：${nextMile ? `寄到第 ${nextMile.sent} 封解锁` : "尚未解锁"}`
+                      ? `${PAPER_LABEL[p.id] ?? p.label}：${nextMile ? `寄到第 ${nextMile.sent} 封解锁` : "尚未解锁"}`
                       : p.label
                   }
                   className={`card overflow-hidden !rounded-2xl p-1.5 transition ${

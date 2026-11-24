@@ -683,3 +683,14 @@ textarea.input {line-height:1.95;padding:1rem;}
   .journal-book h2, .journal-book h3 {break-after:avoid;}
   .journal-book p {orphans:3; widows:3;}
 }
+
+.flower-paper { background-color: var(--flower-tint,#fbf6e9); color: #292722; }
+.flower-cream { --flower-tint:#fbf6e9; }
+.flower-jade { --flower-tint:#edf3e9; }
+.flower-rose { --flower-tint:#f9eeeb; }
+.flower-lines { background-image: repeating-linear-gradient(0deg, transparent 0 23px, #6e594515 23px 24px); }
+.flower-dots { background-image: radial-gradient(#6e594526 1px, transparent 1px); background-size: 13px 13px; }
+.flower-frame { outline: 1px solid #6e594568; outline-offset: -5px; }
+.dark .flower-paper { --flower-tint:#30332d; color:#f7f4ec; }
+.dark .flower-cream { --flower-tint:#393328; }
+.dark .flower-rose { --flower-tint:#40312f; }

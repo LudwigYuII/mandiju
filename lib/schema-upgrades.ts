@@ -245,6 +245,26 @@ export async function upgradeSchema(db: Client) {
         UNIQUE(submission_id,reporter_id))`);
       await tx.execute({sql:"INSERT INTO schema_migrations(version,applied_at) VALUES(8,?)",args:[Date.now()]});
     }
+    if (!(await tx.execute("SELECT version FROM schema_migrations WHERE version=9")).rows.length) {
+      await tx.execute(`CREATE TABLE go_games (
+        id TEXT PRIMARY KEY, black_id TEXT NOT NULL, white_id TEXT NOT NULL,
+        board TEXT NOT NULL, turn INTEGER NOT NULL DEFAULT 1, passes INTEGER NOT NULL DEFAULT 0,
+        state TEXT NOT NULL DEFAULT 'invited', revision INTEGER NOT NULL DEFAULT 0,
+        dead TEXT NOT NULL DEFAULT '', accepted_by INTEGER NOT NULL DEFAULT 0,
+        result TEXT NOT NULL DEFAULT '', updated_at INTEGER NOT NULL,
+        CHECK(black_id<>white_id))`);
+      await tx.execute(`CREATE TABLE go_positions (
+        game_id TEXT NOT NULL, board TEXT NOT NULL, PRIMARY KEY(game_id,board))`);
+      await tx.execute("CREATE INDEX go_games_black ON go_games(black_id,updated_at)");
+      await tx.execute("CREATE INDEX go_games_white ON go_games(white_id,updated_at)");
+      await tx.execute("ALTER TABLE study_profiles ADD COLUMN snow_open INTEGER NOT NULL DEFAULT 0");
+      await tx.execute(`CREATE TABLE letter_books (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, peer_id TEXT NOT NULL, title TEXT NOT NULL, owner_ok INTEGER NOT NULL DEFAULT 0, peer_ok INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL)`);
+      await tx.execute(`CREATE TABLE letter_book_items (book_id TEXT NOT NULL, letter_id TEXT NOT NULL, PRIMARY KEY(book_id,letter_id))`);
+      await tx.execute("CREATE TABLE snow_leaves (visitor_id TEXT NOT NULL, owner_id TEXT NOT NULL, day TEXT NOT NULL, available_at INTEGER NOT NULL, PRIMARY KEY(visitor_id,day))");
+      await tx.execute("CREATE INDEX snow_leaves_owner ON snow_leaves(owner_id,available_at)");
+      await tx.execute("CREATE TABLE floral_papers (owner_id TEXT NOT NULL, style TEXT NOT NULL, name TEXT NOT NULL, PRIMARY KEY(owner_id,style))");
+      await tx.execute({sql:"INSERT INTO schema_migrations VALUES(9,?)",args:[Date.now()]});
+    }
     const cols = (await tx.execute("PRAGMA table_info(users)")).rows.map((c) =>
       String(c.name),
     );

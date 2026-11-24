@@ -26,7 +26,7 @@ export const BASE_PAPERS: PaperKind[] = ["plain"];
 export const BASE_PATTERNS: SealPattern[] = ["plain"];
 export const BASE_TONES: LetterSealTone[] = ["vermilion"];
 
-export const PAPER_LABEL: Record<PaperKind, string> = {
+export const PAPER_LABEL: Partial<Record<PaperKind, string>> = {
   plain: "素笺",
   xuan: "宣纸",
   gold: "洒金",
