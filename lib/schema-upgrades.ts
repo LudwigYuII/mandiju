@@ -265,6 +265,20 @@ export async function upgradeSchema(db: Client) {
       await tx.execute("CREATE TABLE floral_papers (owner_id TEXT NOT NULL, style TEXT NOT NULL, name TEXT NOT NULL, PRIMARY KEY(owner_id,style))");
       await tx.execute({sql:"INSERT INTO schema_migrations VALUES(9,?)",args:[Date.now()]});
     }
+    if (!(await tx.execute("SELECT version FROM schema_migrations WHERE version=10")).rows.length) {
+      await tx.execute(`CREATE TABLE quiet_tea (id TEXT PRIMARY KEY, host TEXT NOT NULL, guest TEXT NOT NULL, starts INTEGER NOT NULL, accepted INTEGER NOT NULL DEFAULT 0, UNIQUE(host,guest,starts))`);
+      await tx.execute(`CREATE TABLE quiet_incense (uid TEXT PRIMARY KEY, starts INTEGER NOT NULL, ends INTEGER NOT NULL)`);
+      await tx.execute(`CREATE TABLE quiet_music (week TEXT PRIMARY KEY, title TEXT NOT NULL, url TEXT NOT NULL, credit TEXT NOT NULL, source TEXT NOT NULL)`);
+      await tx.execute(`CREATE TABLE quiet_members (room TEXT NOT NULL, uid TEXT NOT NULL, PRIMARY KEY(room,uid))`);
+      await tx.execute(`CREATE TABLE quiet_notes (room TEXT NOT NULL, uid TEXT NOT NULL, body TEXT NOT NULL, created INTEGER NOT NULL, id TEXT PRIMARY KEY)`);
+      await tx.execute("CREATE INDEX quiet_notes_room ON quiet_notes(room,uid,created)");
+      await tx.execute(`CREATE TABLE quiet_reports (post_id TEXT NOT NULL, reporter TEXT NOT NULL, body TEXT NOT NULL, reason TEXT NOT NULL, expires INTEGER NOT NULL, PRIMARY KEY(post_id,reporter))`);
+      await tx.execute({sql:"INSERT INTO quiet_music VALUES(?,?,?,?,?)",args:[
+        "2026-11-23","神人暢","https://upload.wikimedia.org/wikipedia/commons/1/1e/Shenren_Chang.ogg",
+        "Charlie Huang 演奏 · CC BY-SA 2.5 · 原錄音，未修改","https://commons.wikimedia.org/wiki/File:Shenren_Chang.ogg",
+      ]});
+      await tx.execute({sql:"INSERT INTO schema_migrations VALUES(10,?)",args:[Date.now()]});
+    }
     const cols = (await tx.execute("PRAGMA table_info(users)")).rows.map((c) =>
       String(c.name),
     );

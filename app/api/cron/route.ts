@@ -1,3 +1,4 @@
+import { quietSchedule } from "@/lib/quiet-time";
 import { NextRequest, NextResponse } from "next/server";
 import { ensureSeasonalGatherings } from "@/lib/seasonal-service";
 import { ensureReadingDay } from "@/lib/reading-service";
@@ -28,6 +29,15 @@ export async function GET(req: NextRequest) {
     await sweepDelivered();
     await runDailyReminders();
     await expireBurnLetters();
+    const now = Date.now();
+    const schedule = quietSchedule(now);
+    const keep = "night:" + schedule.night;
+    const comparison = schedule.open ? "<" : "<=";
+    await db.batch([
+      {sql: `DELETE FROM quiet_notes WHERE room LIKE 'night:%' AND room ${comparison} ?`, args:[keep]},
+      {sql: `DELETE FROM quiet_members WHERE room LIKE 'night:%' AND room ${comparison} ?`, args:[keep]},
+      {sql: "DELETE FROM quiet_reports WHERE expires<=?", args:[now]},
+    ], "write");
     return NextResponse.json({ ok: true, at: Date.now() });
   } catch (e) {
     return NextResponse.json(
