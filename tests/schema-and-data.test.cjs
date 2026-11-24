@@ -44,7 +44,7 @@ test("additive migration is repeatable and preserves historical account and coll
     assert.equal(
       (await db.execute("SELECT COUNT(*) AS n FROM schema_migrations")).rows[0]
         .n,
-      10,
+      11,
     );
   } finally {
     db.close();
@@ -142,4 +142,27 @@ test("one author request key produces at most one historical letter record", asy
   } finally {
     db.close();
   }
+});
+
+test("stream draw is voluntary, notifies once, and passes the cup after a decline", async () => {
+  const { maintainPastimes } = require("../lib/pastimes.ts");
+  const db = await fixture();
+  const now = Date.parse("2026-11-24T12:00:00Z");
+  try {
+    for (const [id,name] of [["a","甲笺"],["b","乙笺"],["c","丙笺"]]) {
+      await db.execute({sql:"INSERT INTO users(id,email,pen_name,password_hash,literary_name,created_at) VALUES(?,?,?,?,?,?)",args:[id,id+"@example.test",name,"test",name,now]});
+    }
+    await db.execute("INSERT INTO pastime_stream_opt VALUES('a'),('b')");
+    await maintainPastimes(db,now);
+    const first=(await db.execute("SELECT owner,deadline FROM pastime_stream_draw")).rows[0];
+    assert.ok(["a","b"].includes(first.owner));
+    assert.equal(first.deadline-now,86400000);
+    await maintainPastimes(db,now+1000);
+    assert.equal((await db.execute("SELECT COUNT(*) AS n FROM notifications")).rows[0].n,1);
+    await db.execute({sql:"UPDATE pastime_stream_draw SET deadline=?",args:[now+1000]});
+    await maintainPastimes(db,now+1000);
+    const second=(await db.execute("SELECT owner FROM pastime_stream_draw")).rows[0];
+    assert.equal(second.owner,first.owner==="a"?"b":"a");
+    assert.equal((await db.execute("SELECT COUNT(*) AS n FROM notifications")).rows[0].n,2);
+  } finally { db.close(); }
 });

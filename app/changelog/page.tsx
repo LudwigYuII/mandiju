@@ -3,6 +3,11 @@ import { UiText } from "@/components/UiText";
 import Reveal from "@/components/Reveal";
 
 const LOG: { v: string; date: string; items: string[] }[] = [
+  {v:"v3.1 · 雅戏与收藏",date:"2026-11-24",items:[
+    "新增曲水流觞、联句与对对子、节令灯谜。",
+    "书斋门庭可陈列博古架清玩，莳花可养一盆随日子慢长的植物。",
+    "驿壁题诗随时间淡去，三十天后停止展示。",
+  ]},
   {v:"v3.0 · 同在一处",date:"2026-11-24",items:[
     "同饮：预约一盏茶，散席后各留一句。",
     "焚香：三十分钟静读计时，可私存札记。",
